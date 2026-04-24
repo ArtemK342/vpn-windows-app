@@ -1,0 +1,14 @@
+<UserControl x:Class="FsocietyNet.Controls.ComingSoonControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource BgDarkBrush}">
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+        <TextBlock x:Name="TitleText" Text="// В РАЗРАБОТКЕ"
+                   Foreground="{StaticResource AccentBrush}"
+                   FontFamily="Consolas" FontSize="11" HorizontalAlignment="Center"/>
+        <TextBlock Text="Раздел будет доступен&#10;в следующих версиях"
+                   Foreground="{StaticResource TextMutedBrush}"
+                   FontFamily="Consolas" FontSize="13" TextAlignment="Center"
+                   Margin="0,8,0,0"/>
+    </StackPanel>
+</UserControl>

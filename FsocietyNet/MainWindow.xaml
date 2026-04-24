@@ -1,0 +1,11 @@
+<Window x:Class="FsocietyNet.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FsocietyNet" Height="580" Width="900"
+        MinHeight="520" MinWidth="780"
+        Background="{StaticResource BgDarkBrush}"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize">
+
+    <ContentControl x:Name="RootContent"/>
+</Window>

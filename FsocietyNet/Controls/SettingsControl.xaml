@@ -1,0 +1,78 @@
+<UserControl x:Class="FsocietyNet.Controls.SettingsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource BgDarkBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <!-- Заголовок -->
+            <StackPanel Margin="24,48,24,8">
+                <TextBlock Text="// НАСТРОЙКИ" Foreground="{StaticResource AccentBrush}"
+                           FontFamily="Consolas" FontSize="11"/>
+                <TextBlock Text="Настройки." Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="28" FontWeight="Bold" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- Email -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="АККАУНТ" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock x:Name="EmailText" Text="Загрузка..."
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Подписка -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <StackPanel>
+                        <TextBlock Text="ПОДПИСКА" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock x:Name="SubText" Text="Загрузка..."
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Версия -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <StackPanel>
+                        <TextBlock Text="ВЕРСИЯ" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock Text="0.0.1 (Windows)"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- WireGuard статус -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <StackPanel>
+                        <TextBlock Text="WIREGUARD" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock x:Name="WgText" Text="Проверка..."
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Separator Background="{StaticResource BorderBrush2}" Margin="0,24,0,24"/>
+
+            <!-- Кнопка выхода -->
+            <Button Content="ВЫЙТИ →" Style="{StaticResource DangerButton}"
+                    Margin="24,0" Click="LogoutBtn_Click"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
