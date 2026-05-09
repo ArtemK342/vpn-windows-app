@@ -8,19 +8,25 @@ public class VpnService
 {
     private const string TunnelName = "FsocietyNet";
 
-    // Приоритет: локальный amneziawg.exe → системный AmneziaWG → системный WireGuard
+    // Приоритет: вшитый (AppData) → рядом с .exe → системный AmneziaWG → системный WireGuard
     private static string WireGuardPath
     {
         get
         {
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            // 1. Извлечённый из embedded resources (основной путь в продакшне)
+            var extracted = ResourceExtractor.AmneziawgPath;
+            if (File.Exists(extracted)) return extracted;
 
+            // 2. Рядом с .exe (удобно при разработке)
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             var localAwg = Path.Combine(baseDir, "amneziawg.exe");
             if (File.Exists(localAwg)) return localAwg;
 
+            // 3. Системный AmneziaWG (пользователь установил сам)
             var systemAwg = @"C:\Program Files\AmneziaWG\amneziawg.exe";
             if (File.Exists(systemAwg)) return systemAwg;
 
+            // 4. Системный WireGuard (последний fallback)
             var localWg = Path.Combine(baseDir, "wireguard.exe");
             if (File.Exists(localWg)) return localWg;
 

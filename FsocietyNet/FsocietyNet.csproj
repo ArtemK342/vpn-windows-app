@@ -13,4 +13,10 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
   </ItemGroup>
+
+  <!-- Вшитые бинарники AmneziaWG. Файлы должны лежать в FsocietyNet/Resources/ -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\amneziawg.exe" Condition="Exists('Resources\amneziawg.exe')" />
+    <EmbeddedResource Include="Resources\wintun.dll"    Condition="Exists('Resources\wintun.dll')" />
+  </ItemGroup>
 </Project>

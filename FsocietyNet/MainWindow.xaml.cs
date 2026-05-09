@@ -19,6 +19,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         Closing += MainWindow_Closing;
 
+        // Извлекаем amneziawg.exe + wintun.dll из embedded resources
+        ResourceExtractor.EnsureExtracted();
+
         // При старте всегда чистим старый туннель (если остался после крэша/пересборки)
         _ = CleanupOldTunnelAsync();
 
