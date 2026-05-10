@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FsocietyNet.Models;
 using FsocietyNet.Services;
 
@@ -92,6 +93,10 @@ public partial class HomeControl : UserControl
     private bool        _suppressSelection;
     private ServerItem? _connectedItem;
 
+    // Auto-reconnect watchdog
+    private readonly DispatcherTimer _watchdog = new() { Interval = TimeSpan.FromSeconds(30) };
+    private int _reconnectAttempts = 0;
+
     private Brush AccentBrush => (Brush)Application.Current.Resources["AccentBrush"]!;
     private Brush MutedBrush  => (Brush)Application.Current.Resources["TextMutedBrush"]!;
 
@@ -100,7 +105,83 @@ public partial class HomeControl : UserControl
         _token = token;
         InitializeComponent();
         ServerList.ItemsSource = _items;
+
+        // Wire VpnState events
+        VpnState.ConnectBestRequested += OnConnectBestRequested;
+        VpnState.DisconnectRequested  += OnDisconnectRequested;
+
+        // Sync button/status when VPN state changes from outside (e.g. tray)
+        VpnState.StateChanged += OnVpnStateChanged;
+
+        // Watchdog
+        _watchdog.Tick += WatchdogTick;
+        _watchdog.Start();
+
         _ = LoadServersAsync();
+    }
+
+    private void OnVpnStateChanged(bool connected, string? serverName)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            if (connected && !_isConnected)
+            {
+                // Tray connected — update button state without knowing the server item
+                ConnectBtn.Style   = (Style)Application.Current.Resources["DisconnectButton"]!;
+                ConnectBtn.Content = "● Отключиться";
+                ConnectBtn.IsEnabled = true;
+                ConnectedText.Text       = serverName != null ? $"●  {serverName}" : "●  Подключён";
+                ConnectedText.Foreground = AccentBrush;
+                _isConnected = true;
+            }
+            else if (!connected && _isConnected)
+            {
+                // Tray disconnected
+                ConnectedText.Text       = "○  Отключён";
+                ConnectedText.Foreground = MutedBrush;
+                SetBtn("Подключиться", true, primary: true);
+                _isConnected = false;
+                if (_connectedItem != null) { _connectedItem.IsConnected = false; _connectedItem = null; }
+            }
+        });
+    }
+
+    // ── VpnState callbacks ───────────────────────────────────────────────
+
+    private void OnConnectBestRequested() =>
+        Dispatcher.InvokeAsync(() => ConnectBtn_Click(this, new RoutedEventArgs()));
+
+    private void OnDisconnectRequested() =>
+        Dispatcher.InvokeAsync(() => { if (_isConnected) _ = DisconnectCurrentAsync(); });
+
+    // ── Watchdog ─────────────────────────────────────────────────────────
+
+    private async void WatchdogTick(object? sender, EventArgs e)
+    {
+        if (!_isConnected || _isBusy) return;
+        var cfg = AppConfig.Load();
+        if (!cfg.AutoReconnect) return;
+        if (VpnService.TunnelServiceExists()) { _reconnectAttempts = 0; return; }
+
+        _reconnectAttempts++;
+        if (_reconnectAttempts > 3)
+        {
+            _isConnected = false;
+            VpnState.IsConnected = false;
+            if (_connectedItem != null) _connectedItem.IsConnected = false;
+            _connectedItem = null;
+            ConnectedText.Text       = "○  Отключён";
+            ConnectedText.Foreground = MutedBrush;
+            SetBtn("Подключиться", true, primary: true);
+            MainWindow.Tray?.ShowNotification("[f]society VPN",
+                "VPN отключился. Не удалось переподключиться.", WinForms.ToolTipIcon.Warning);
+            _reconnectAttempts = 0;
+            return;
+        }
+
+        MainWindow.Tray?.ShowNotification("[f]society VPN",
+            $"VPN отключился — переподключение ({_reconnectAttempts}/3)...");
+        if (_connectedItem != null) await ConnectToServerAsync(_connectedItem);
     }
 
     // ───────────────────────── Загрузка ─────────────────────────
@@ -115,6 +196,15 @@ public partial class HomeControl : UserControl
             foreach (var s in servers)
                 _items.Add(new ServerItem { Server = s });
             _ = PingAllAsync();
+
+            // Auto-connect to last server
+            var cfg = AppConfig.Load();
+            if (cfg.AutoConnect && !string.IsNullOrEmpty(cfg.LastServerId))
+            {
+                var target = _items.FirstOrDefault(i =>
+                    i.Server.id == cfg.LastServerId && i.Server.allow_auto_connect);
+                if (target != null) await ConnectToServerAsync(target);
+            }
         }
         catch
         {
@@ -163,7 +253,6 @@ public partial class HomeControl : UserControl
 
     private void Star_Down(object sender, MouseButtonEventArgs e)
     {
-        // Подавляем выбор сервера ДО того как ListBox его обработает
         _suppressSelection = true;
     }
 
@@ -175,7 +264,6 @@ public partial class HomeControl : UserControl
         CollectionViewSource.GetDefaultView(_items).Refresh();
         e.Handled = true;
 
-        // Сбрасываем флаг после обработки всех событий этого клика
         Dispatcher.InvokeAsync(
             () => _suppressSelection = false,
             System.Windows.Threading.DispatcherPriority.Input);
@@ -204,10 +292,10 @@ public partial class HomeControl : UserControl
         if (_isConnected) { await DisconnectCurrentAsync(); return; }
 
         var best = _items
-            .Where(i => i.Server.is_active && i.Ping > 0 && i.Ping < 999)
+            .Where(i => i.Server.is_active && i.Server.allow_auto_connect && i.Ping > 0 && i.Ping < 999)
             .OrderBy(i => i.Ping)
             .FirstOrDefault()
-            ?? _items.FirstOrDefault(i => i.Server.is_active);
+            ?? _items.FirstOrDefault(i => i.Server.is_active && i.Server.allow_auto_connect);
 
         if (best == null) return;
 
@@ -244,7 +332,8 @@ public partial class HomeControl : UserControl
             }
 
             SetBtn("Подключение...", false);
-            var ok = await _vpn.ConnectAsync(resp.config);
+            // Run off UI thread — WireGuard service install can take 5-10s and cause ANR
+            var ok = await Task.Run(async () => await _vpn.ConnectAsync(resp.config!));
 
             if (ok)
             {
@@ -257,11 +346,23 @@ public partial class HomeControl : UserControl
                 ConnectedText.Text       = $"●  {target.Name}";
                 ConnectedText.Foreground = AccentBrush;
                 SetStatus("");
+
+                // Update global state
+                VpnState.ConnectedServerName = target.Name;
+                VpnState.IsConnected = true;
+
+                // Save last server
+                var cfg2 = AppConfig.Load();
+                cfg2.LastServerId = target.Server.id;
+                cfg2.Save();
+
+                MainWindow.Tray?.ShowNotification("[f]society VPN", $"Подключён: {target.Name}");
             }
             else
             {
                 SetStatus("Ошибка подключения");
                 SetBtn("Подключиться", true, primary: true);
+                MainWindow.Tray?.ShowNotification("[f]society VPN", "Ошибка подключения", WinForms.ToolTipIcon.Error);
             }
         }
         catch (Exception ex)
@@ -272,6 +373,7 @@ public partial class HomeControl : UserControl
                     : msg.Contains("403")                                     ? "Нет подписки"
                     : "Нет соединения с сервером");
             SetBtn("Подключиться", true, primary: true);
+            MainWindow.Tray?.ShowNotification("[f]society VPN", "Ошибка подключения", WinForms.ToolTipIcon.Error);
         }
         finally { _isBusy = false; }
     }
@@ -280,6 +382,8 @@ public partial class HomeControl : UserControl
     {
         try { await _vpn.DisconnectAsync(); } catch { }
         _isConnected = false;
+        VpnState.IsConnected = false;
+        VpnState.ConnectedServerName = null;
         if (_connectedItem != null) _connectedItem.IsConnected = false;
         _connectedItem = null;
         if (!silent)
@@ -288,6 +392,7 @@ public partial class HomeControl : UserControl
             ConnectedText.Foreground = MutedBrush;
             SetStatus("");
             SetBtn("Подключиться", true, primary: true);
+            MainWindow.Tray?.ShowNotification("[f]society VPN", "Отключён");
         }
     }
 

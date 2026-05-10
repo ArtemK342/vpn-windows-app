@@ -9,6 +9,9 @@ public partial class MainWindow : Window
 {
     private static MainWindow _instance = null!;
     private readonly VpnService _vpn = new();
+    private bool _reallyClosing = false;
+
+    public static TrayService? Tray { get; private set; }
 
     public static void Navigate(UIElement control) =>
         _instance.RootContent.Content = control;
@@ -17,12 +20,27 @@ public partial class MainWindow : Window
     {
         _instance = this;
         InitializeComponent();
+
+        // Create tray icon
+        Tray = new TrayService(
+            onOpen:       ShowFromTray,
+            onConnect:    VpnState.RequestConnectBest,
+            onDisconnect: VpnState.RequestDisconnect,
+            onExit:       () => { _reallyClosing = true; Close(); }
+        );
+
+        // Subscribe to VPN state changes → update tray
+        VpnState.StateChanged += (connected, serverName) =>
+        {
+            Dispatcher.InvokeAsync(() => Tray?.SetConnected(connected, serverName));
+        };
+
         Closing += MainWindow_Closing;
 
-        // Извлекаем amneziawg.exe + wintun.dll из embedded resources
+        // Extract amneziawg.exe + wintun.dll from embedded resources
         ResourceExtractor.EnsureExtracted();
 
-        // При старте всегда чистим старый туннель (если остался после крэша/пересборки)
+        // Clean up any leftover tunnel from previous run
         _ = CleanupOldTunnelAsync();
 
         var token = LoadToken();
@@ -39,13 +57,40 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        // Синхронно отключаем туннель при закрытии окна
+        if (!_reallyClosing)
+        {
+            e.Cancel = true;
+            HideToTray();
+            return;
+        }
+
+        // Real close — dispose tray and disconnect tunnel
+        Tray?.Dispose();
+        Tray = null;
+
         try
         {
             _vpn.DisconnectAsync().GetAwaiter().GetResult();
         }
         catch { }
     }
+
+    private void ShowFromTray()
+    {
+        Visibility     = Visibility.Visible;
+        ShowInTaskbar  = true;
+        WindowState    = WindowState.Normal;
+        Activate();
+        Focus();
+    }
+
+    private void HideToTray()
+    {
+        Visibility    = Visibility.Hidden;
+        ShowInTaskbar = false;
+    }
+
+    // ── Token helpers ──────────────────────────────────────────────────────
 
     public static string? LoadToken()
     {

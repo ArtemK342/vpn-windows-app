@@ -12,14 +12,10 @@
                            FontSize="28" FontWeight="Bold" Margin="0,4,0,0"/>
             </StackPanel>
 
-            <!-- Email -->
+            <!-- Аккаунт -->
             <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
                 <Grid Margin="24,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
+                    <StackPanel>
                         <TextBlock Text="АККАУНТ" Foreground="{StaticResource TextMutedBrush}"
                                    FontFamily="Consolas" FontSize="10"/>
                         <TextBlock x:Name="EmailText" Text="Загрузка..."
@@ -32,14 +28,218 @@
             <!-- Подписка -->
             <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
                 <Grid Margin="24,16">
-                    <StackPanel>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
                         <TextBlock Text="ПОДПИСКА" Foreground="{StaticResource TextMutedBrush}"
                                    FontFamily="Consolas" FontSize="10"/>
                         <TextBlock x:Name="SubText" Text="Загрузка..."
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
                     </StackPanel>
+                    <Button x:Name="BuySubBtn" Grid.Column="1"
+                            Content="КУПИТЬ ПОДПИСКУ →"
+                            Style="{StaticResource PrimaryButton}"
+                            Height="36" Padding="16,0" FontSize="11"
+                            Visibility="Collapsed"
+                            Click="BuySubBtn_Click"/>
                 </Grid>
+            </Border>
+
+            <!-- Kill Switch -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="KILL SWITCH" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock Text="Блокировать трафик при отключении VPN"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="KsDescText"
+                                   Text="Весь трафик будет заблокирован, пока VPN не подключён."
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"
+                                   TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Border x:Name="KsToggle" Grid.Column="1"
+                            Width="52" Height="28" CornerRadius="14"
+                            Background="{StaticResource BorderBrush2}"
+                            Cursor="Hand" MouseLeftButtonUp="KsToggle_Click"
+                            VerticalAlignment="Center">
+                        <Grid>
+                            <Ellipse x:Name="KsThumb" Width="22" Height="22"
+                                     Fill="{StaticResource TextMutedBrush}"
+                                     HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- AutoStart -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="АВТОЗАПУСК" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock Text="Запускать приложение при входе в Windows"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Border x:Name="AutoStartToggle" Grid.Column="1"
+                            Width="52" Height="28" CornerRadius="14"
+                            Background="{StaticResource BorderBrush2}"
+                            Cursor="Hand" MouseLeftButtonUp="AutoStartToggle_Click"
+                            VerticalAlignment="Center">
+                        <Grid>
+                            <Ellipse x:Name="AutoStartThumb" Width="22" Height="22"
+                                     Fill="{StaticResource TextMutedBrush}"
+                                     HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- AutoConnect -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="АВТОПОДКЛЮЧЕНИЕ" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock Text="Подключаться к последнему серверу при запуске"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Border x:Name="AutoConnectToggle" Grid.Column="1"
+                            Width="52" Height="28" CornerRadius="14"
+                            Background="{StaticResource BorderBrush2}"
+                            Cursor="Hand" MouseLeftButtonUp="AutoConnectToggle_Click"
+                            VerticalAlignment="Center">
+                        <Grid>
+                            <Ellipse x:Name="AutoConnectThumb" Width="22" Height="22"
+                                     Fill="{StaticResource TextMutedBrush}"
+                                     HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- AutoReconnect -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="АВТО-ПЕРЕПОДКЛЮЧЕНИЕ" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock Text="Переподключаться автоматически при разрыве VPN"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Border x:Name="AutoReconnectToggle" Grid.Column="1"
+                            Width="52" Height="28" CornerRadius="14"
+                            Background="{StaticResource BorderBrush2}"
+                            Cursor="Hand" MouseLeftButtonUp="AutoReconnectToggle_Click"
+                            VerticalAlignment="Center">
+                        <Grid>
+                            <Ellipse x:Name="AutoReconnectThumb" Width="22" Height="22"
+                                     Fill="{StaticResource TextMutedBrush}"
+                                     HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- AmneziaWG -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <StackPanel>
+                        <TextBlock Text="AMNEZIAWG" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock x:Name="WgText" Text="Проверка..."
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Смена пароля: кнопка -->
+            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+                <Grid Margin="24,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="БЕЗОПАСНОСТЬ" Foreground="{StaticResource TextMutedBrush}"
+                                   FontFamily="Consolas" FontSize="10"/>
+                        <TextBlock Text="Пароль аккаунта"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Button x:Name="ShowChangePassBtn" Grid.Column="1"
+                            Content="Изменить пароль"
+                            Style="{StaticResource SecondaryButton}"
+                            Height="36" Padding="16,0" FontSize="11"
+                            Click="ShowChangePassBtn_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- Панель смены пароля -->
+            <Border x:Name="ChangePasswordPanel"
+                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0"
+                    Visibility="Collapsed">
+                <StackPanel Margin="24,16">
+                    <TextBlock Text="СМЕНА ПАРОЛЯ" Foreground="{StaticResource TextMutedBrush}"
+                               FontFamily="Consolas" FontSize="10" Margin="0,0,0,12"/>
+                    <PasswordBox x:Name="OldPassBox"
+                                 Style="{StaticResource DarkPasswordBox}"
+                                 Margin="0,0,0,8">
+                        <PasswordBox.Tag>Текущий пароль</PasswordBox.Tag>
+                    </PasswordBox>
+                    <PasswordBox x:Name="NewPassBox"
+                                 Style="{StaticResource DarkPasswordBox}"
+                                 Margin="0,0,0,8">
+                        <PasswordBox.Tag>Новый пароль</PasswordBox.Tag>
+                    </PasswordBox>
+                    <PasswordBox x:Name="ConfirmPassBox"
+                                 Style="{StaticResource DarkPasswordBox}"
+                                 Margin="0,0,0,8">
+                        <PasswordBox.Tag>Подтвердите новый пароль</PasswordBox.Tag>
+                    </PasswordBox>
+                    <TextBlock x:Name="PwErrorText"
+                               Foreground="{StaticResource ErrorRedBrush}"
+                               FontFamily="Consolas" FontSize="11"
+                               Visibility="Collapsed" Margin="0,0,0,8"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="СОХРАНИТЬ"
+                                Style="{StaticResource PrimaryButton}"
+                                Height="40" Click="SavePassBtn_Click"/>
+                        <Button Grid.Column="2" Content="ОТМЕНА"
+                                Style="{StaticResource SecondaryButton}"
+                                Height="40" Click="CancelPassBtn_Click"/>
+                    </Grid>
+                </StackPanel>
             </Border>
 
             <!-- Версия -->
@@ -48,20 +248,7 @@
                     <StackPanel>
                         <TextBlock Text="ВЕРСИЯ" Foreground="{StaticResource TextMutedBrush}"
                                    FontFamily="Consolas" FontSize="10"/>
-                        <TextBlock Text="0.0.1 (Windows)"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- WireGuard статус -->
-            <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
-                <Grid Margin="24,16">
-                    <StackPanel>
-                        <TextBlock Text="WIREGUARD" Foreground="{StaticResource TextMutedBrush}"
-                                   FontFamily="Consolas" FontSize="10"/>
-                        <TextBlock x:Name="WgText" Text="Проверка..."
+                        <TextBlock Text="0.1.0 (Windows)"
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    FontSize="14" FontWeight="Bold" Margin="0,4,0,0"/>
                     </StackPanel>
@@ -72,7 +259,7 @@
 
             <!-- Кнопка выхода -->
             <Button Content="ВЫЙТИ →" Style="{StaticResource DangerButton}"
-                    Margin="24,0" Click="LogoutBtn_Click"/>
+                    Margin="24,0,24,48" Click="LogoutBtn_Click"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

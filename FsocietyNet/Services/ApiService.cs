@@ -81,4 +81,70 @@ public class ApiService
         var resp = await _client.PostAsync("register", content);
         resp.EnsureSuccessStatusCode();
     }
+
+    // ── Тикеты ──
+
+    public async Task<List<TicketResponse>> GetTicketsAsync(string token)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, "tickets");
+        req.Headers.Add("Authorization", $"Bearer {token}");
+        var resp = await _client.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<TicketResponse>>(_json) ?? [];
+    }
+
+    public async Task<TicketDetailResponse> GetTicketAsync(string token, string ticketId)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"tickets/{ticketId}");
+        req.Headers.Add("Authorization", $"Bearer {token}");
+        var resp = await _client.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<TicketDetailResponse>(_json)
+               ?? throw new Exception("Нет ответа");
+    }
+
+    public async Task<TicketResponse> CreateTicketAsync(string token, string subject)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, "tickets");
+        req.Headers.Add("Authorization", $"Bearer {token}");
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new TicketCreateRequest(subject)),
+            Encoding.UTF8, "application/json");
+        var resp = await _client.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<TicketResponse>(_json)
+               ?? throw new Exception("Нет ответа");
+    }
+
+    public async Task<TicketMessageResponse> AddTicketMessageAsync(string token, string ticketId, string message)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"tickets/{ticketId}/messages");
+        req.Headers.Add("Authorization", $"Bearer {token}");
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new TicketMessageRequest(message)),
+            Encoding.UTF8, "application/json");
+        var resp = await _client.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<TicketMessageResponse>(_json)
+               ?? throw new Exception("Нет ответа");
+    }
+
+    public async Task ChangePasswordAsync(string token, string oldPassword, string newPassword)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, "change-password");
+        req.Headers.Add("Authorization", $"Bearer {token}");
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new ChangePasswordRequest(oldPassword, newPassword)),
+            Encoding.UTF8, "application/json");
+        var resp = await _client.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    public async Task CloseTicketAsync(string token, string ticketId)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Patch, $"tickets/{ticketId}/close");
+        req.Headers.Add("Authorization", $"Bearer {token}");
+        var resp = await _client.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+    }
 }

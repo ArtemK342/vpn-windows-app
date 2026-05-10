@@ -38,7 +38,7 @@ public class VpnService
 
     public bool IsAmneziaWG => WireGuardPath.Contains("amneziawg", StringComparison.OrdinalIgnoreCase);
 
-    private static bool TunnelServiceExists()
+    public static bool TunnelServiceExists()
     {
         // WireGuard/AmneziaWG регистрируют службу с префиксом
         var candidates = new[]
@@ -60,10 +60,33 @@ public class VpnService
         return false;
     }
 
-    public async Task<bool> ConnectAsync(string config)
+    public static string GetWireGuardVersion()
+    {
+        try
+        {
+            var path = WireGuardPath;
+            if (!File.Exists(path)) return "не установлен";
+            var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+            return info.ProductVersion ?? info.FileVersion ?? "неизвестна";
+        }
+        catch { return "неизвестна"; }
+    }
+
+    /// <summary>
+    /// Подключается с применением настроек туннелирования из AppConfig.
+    /// rawConfig — оригинальный конфиг с сервера; AllowedIPs будет перезаписан.
+    /// </summary>
+    public async Task<bool> ConnectAsync(string rawConfig)
     {
         if (!IsWireGuardInstalled)
             throw new Exception("AmneziaWG не установлен.\nСкачайте: github.com/amnezia-vpn/amneziawg-windows-client/releases");
+
+        var cfg = AppConfig.Load();
+
+        // Перестраиваем AllowedIPs по настройкам сплит-туннеля
+        // (резолвим домены → CIDR complement или include-список)
+        var allowedIPs = await IpRouteHelper.BuildAllowedIPsAsync(cfg);
+        var config = RewriteAllowedIPs(rawConfig, allowedIPs);
 
         var dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -73,20 +96,37 @@ public class VpnService
         var configPath = Path.Combine(dir, $"{TunnelName}.conf");
         await File.WriteAllTextAsync(configPath, config);
 
-        // Удаляем старый туннель только если он существует
         if (TunnelServiceExists())
         {
             await RunAsync($"/uninstalltunnelservice {TunnelName}");
             await Task.Delay(500);
         }
 
-        return await RunAsync($"/installtunnelservice \"{configPath}\"");
+        var ok = await RunAsync($"/installtunnelservice \"{configPath}\"");
+
+        if (ok)
+        {
+            // Firewall-правила для приложений
+            await IpRouteHelper.ApplyAppRulesAsync(cfg, TunnelName);
+
+            // Kill Switch
+            if (cfg.KillSwitch)
+                await EnableKillSwitchAsync();
+        }
+
+        return ok;
     }
 
     public async Task DisconnectAsync()
     {
         if (TunnelServiceExists())
             await RunAsync($"/uninstalltunnelservice {TunnelName}");
+
+        // Снимаем app-правила брандмауэра
+        await IpRouteHelper.RemoveAppRulesAsync(TunnelName);
+
+        // Kill Switch: правило остаётся — трафик заблокирован пока VPN не включён.
+        // Снимается только вручную (пользователь отключает KS или переподключается).
     }
 
     private static async Task<bool> RunAsync(string args)
@@ -111,6 +151,86 @@ public class VpnService
         {
             return false;
         }
+    }
+
+    // ───────────────────── Helpers ─────────────────────
+
+    /// <summary>Заменяет строку AllowedIPs в WireGuard-конфиге.</summary>
+    private static string RewriteAllowedIPs(string config, string allowedIPs)
+    {
+        var lines = config.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].TrimStart().StartsWith("AllowedIPs", StringComparison.OrdinalIgnoreCase))
+                lines[i] = $"AllowedIPs = {allowedIPs}";
+        }
+        return string.Join('\n', lines);
+    }
+
+    // ───────────────────── Kill Switch ─────────────────────
+
+    private const string KsRuleName = "FsocietyNet-KillSwitch";
+
+    /// <summary>
+    /// Включает Kill Switch: добавляет правило Windows Firewall, блокирующее весь
+    /// исходящий трафик. WireGuard/AmneziaWG использует WFP на уровне ниже Windows
+    /// Firewall, поэтому трафик через VPN-туннель остаётся доступным.
+    /// </summary>
+    public static async Task EnableKillSwitchAsync()
+    {
+        // Сначала удаляем старое правило (если есть), чтобы не было дублей
+        await RunNetshAsync($"advfirewall firewall delete rule name=\"{KsRuleName}\"");
+        await RunNetshAsync(
+            $"advfirewall firewall add rule name=\"{KsRuleName}\" " +
+            "dir=out action=block profile=any " +
+            "description=\"fsociety VPN Kill Switch — удалится автоматически\"");
+    }
+
+    /// <summary>Выключает Kill Switch — удаляет правило блокировки.</summary>
+    public static async Task DisableKillSwitchAsync()
+    {
+        await RunNetshAsync($"advfirewall firewall delete rule name=\"{KsRuleName}\"");
+    }
+
+    /// <summary>Проверяет, активно ли правило Kill Switch в Firewall.</summary>
+    public static bool IsKillSwitchRuleActive()
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName               = "netsh",
+                Arguments              = $"advfirewall firewall show rule name=\"{KsRuleName}\"",
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
+                RedirectStandardOutput = true,
+            };
+            var p = Process.Start(psi);
+            if (p == null) return false;
+            var output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+            return output.Contains(KsRuleName, StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    private static async Task RunNetshAsync(string args)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName               = "netsh",
+                Arguments              = args,
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError  = true
+            };
+            var p = Process.Start(psi);
+            if (p != null) await p.WaitForExitAsync();
+        }
+        catch { }
     }
 
     /// <summary>TCP пинг — fallback когда ICMP заблокирован.</summary>

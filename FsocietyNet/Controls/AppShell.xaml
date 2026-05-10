@@ -4,8 +4,9 @@
              Background="{StaticResource BgDarkBrush}">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="52"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="52"/>   <!-- Row 0: tab bar -->
+            <RowDefinition Height="Auto"/> <!-- Row 1: update banner (collapsed by default) -->
+            <RowDefinition Height="*"/>    <!-- Row 2: content -->
         </Grid.RowDefinitions>
 
         <!-- Верхняя навигация -->
@@ -28,19 +29,33 @@
 
                 <!-- Вкладки -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="HomeTabBtn"    Content="ГЛАВНАЯ"
+                    <Button x:Name="HomeTabBtn"      Content="ГЛАВНАЯ"
                             Style="{StaticResource TabButtonActive}" Click="HomeTab_Click"/>
-                    <Button x:Name="TunnelTabBtn"  Content="ТУННЕЛИРОВАНИЕ"
+                    <Button x:Name="TunnelTabBtn"    Content="ТУННЕЛИРОВАНИЕ"
                             Style="{StaticResource TabButton}"       Click="TunnelTab_Click"/>
-                    <Button x:Name="SupportTabBtn" Content="ПОДДЕРЖКА"
+                    <Button x:Name="StatsTabBtn"     Content="СТАТИСТИКА"
+                            Style="{StaticResource TabButton}"       Click="StatsTab_Click"/>
+                    <Button x:Name="SupportTabBtn"   Content="ПОДДЕРЖКА"
                             Style="{StaticResource TabButton}"       Click="SupportTab_Click"/>
-                    <Button x:Name="SettingsTabBtn" Content="НАСТРОЙКИ"
+                    <Button x:Name="SettingsTabBtn"  Content="НАСТРОЙКИ"
                             Style="{StaticResource TabButton}"       Click="SettingsTab_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
 
+        <!-- Баннер обновления -->
+        <Border x:Name="UpdateBanner" Grid.Row="1" Visibility="Collapsed"
+                Background="#0A1500" BorderBrush="{StaticResource AccentBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="24,8">
+                <TextBlock x:Name="UpdateText" Foreground="{StaticResource AccentBrush}"
+                           FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
+                <Button x:Name="UpdateBtn" HorizontalAlignment="Right"
+                        Content="Скачать →" Style="{StaticResource PrimaryButton}"
+                        Height="30" Padding="14,0" FontSize="11" Click="UpdateBtn_Click"/>
+            </Grid>
+        </Border>
+
         <!-- Контент -->
-        <ContentControl x:Name="TabContent" Grid.Row="1"/>
+        <ContentControl x:Name="TabContent" Grid.Row="2"/>
     </Grid>
 </UserControl>
