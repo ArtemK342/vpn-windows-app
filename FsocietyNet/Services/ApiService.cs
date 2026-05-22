@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
@@ -21,6 +22,17 @@ public class ApiService
         PropertyNameCaseInsensitive = true
     };
 
+    public static event Action? SessionExpired;
+
+    private static void HandleResponse(HttpResponseMessage resp)
+    {
+        if (resp.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            SessionExpired?.Invoke();
+        }
+        HandleResponse(resp);
+    }
+
     public async Task<LoginResponse> LoginAsync(string email, string password)
     {
         var content = new FormUrlEncodedContent(new[]
@@ -40,7 +52,7 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Get, "me");
         req.Headers.Add("Authorization", $"Bearer {token}");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
         return await resp.Content.ReadFromJsonAsync<UserResponse>(_json)
                ?? throw new Exception("Нет ответа от сервера");
     }
@@ -50,7 +62,7 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Get, "servers");
         req.Headers.Add("Authorization", $"Bearer {token}");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
         return await resp.Content.ReadFromJsonAsync<List<ServerResponse>>(_json)
                ?? [];
     }
@@ -60,6 +72,7 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Get, "subscription");
         req.Headers.Add("Authorization", $"Bearer {token}");
         var resp = await _client.SendAsync(req);
+        if (resp.StatusCode == HttpStatusCode.Unauthorized) { SessionExpired?.Invoke(); return null; }
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<SubscriptionResponse>(_json);
     }
@@ -69,7 +82,7 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Post, $"vpn/config?server_id={serverId}");
         req.Headers.Add("Authorization", $"Bearer {token}");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
         return await resp.Content.ReadFromJsonAsync<VpnConfigResponse>(_json)
                ?? throw new Exception("Нет ответа от сервера");
     }
@@ -79,7 +92,7 @@ public class ApiService
         var body = JsonSerializer.Serialize(new RegisterRequest(email, password));
         var content = new StringContent(body, Encoding.UTF8, "application/json");
         var resp = await _client.PostAsync("register", content);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
     }
 
     // ── Тикеты ──
@@ -89,7 +102,7 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Get, "tickets");
         req.Headers.Add("Authorization", $"Bearer {token}");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
         return await resp.Content.ReadFromJsonAsync<List<TicketResponse>>(_json) ?? [];
     }
 
@@ -98,7 +111,7 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Get, $"tickets/{ticketId}");
         req.Headers.Add("Authorization", $"Bearer {token}");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
         return await resp.Content.ReadFromJsonAsync<TicketDetailResponse>(_json)
                ?? throw new Exception("Нет ответа");
     }
@@ -111,7 +124,7 @@ public class ApiService
             JsonSerializer.Serialize(new TicketCreateRequest(subject)),
             Encoding.UTF8, "application/json");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
         return await resp.Content.ReadFromJsonAsync<TicketResponse>(_json)
                ?? throw new Exception("Нет ответа");
     }
@@ -124,7 +137,7 @@ public class ApiService
             JsonSerializer.Serialize(new TicketMessageRequest(message)),
             Encoding.UTF8, "application/json");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
         return await resp.Content.ReadFromJsonAsync<TicketMessageResponse>(_json)
                ?? throw new Exception("Нет ответа");
     }
@@ -137,7 +150,7 @@ public class ApiService
             JsonSerializer.Serialize(new ChangePasswordRequest(oldPassword, newPassword)),
             Encoding.UTF8, "application/json");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
     }
 
     public async Task CloseTicketAsync(string token, string ticketId)
@@ -145,6 +158,33 @@ public class ApiService
         using var req = new HttpRequestMessage(HttpMethod.Patch, $"tickets/{ticketId}/close");
         req.Headers.Add("Authorization", $"Bearer {token}");
         var resp = await _client.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        HandleResponse(resp);
+    }
+
+    public async Task<UsageResponse?> GetUsageAsync(string token)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, "vpn/usage");
+            req.Headers.Add("Authorization", $"Bearer {token}");
+            var resp = await _client.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<UsageResponse>(_json);
+        }
+        catch { return null; }
+    }
+
+    public async Task<LoginResponse?> RefreshAsync(string refreshToken)
+    {
+        try
+        {
+            var body = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(new { refresh_token = refreshToken }),
+                System.Text.Encoding.UTF8, "application/json");
+            var resp = await _client.PostAsync("refresh", body);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<LoginResponse>(_json);
+        }
+        catch { return null; }
     }
 }

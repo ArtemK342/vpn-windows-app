@@ -118,6 +118,7 @@ public partial class HomeControl : UserControl
         _watchdog.Start();
 
         _ = LoadServersAsync();
+        _ = LoadUsageAsync();
     }
 
     private void OnVpnStateChanged(bool connected, string? serverName)
@@ -185,6 +186,43 @@ public partial class HomeControl : UserControl
     }
 
     // ───────────────────────── Загрузка ─────────────────────────
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1_073_741_824L => $"{bytes / 1_073_741_824.0:F1} ГБ",
+        >= 1_048_576L     => $"{bytes / 1_048_576.0:F1} МБ",
+        >= 1024L          => $"{bytes / 1024.0:F0} КБ",
+        _                 => $"{bytes} Б"
+    };
+
+    private async Task LoadUsageAsync()
+    {
+        try
+        {
+            var usage = await _api.GetUsageAsync(_token);
+            if (usage == null || !usage.is_limited) return;
+
+            var remaining = Math.Max(0L, usage.limit_bytes - usage.bytes_used);
+            var fraction  = Math.Clamp((double)usage.bytes_used / usage.limit_bytes, 0, 1);
+
+            var barColor = fraction switch
+            {
+                >= 1.0 => new SolidColorBrush(Color.FromRgb(0xFF, 0x44, 0x44)),
+                >= 0.8 => new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0x00)),
+                _      => (Brush)Application.Current.Resources["AccentBrush"]!
+            };
+
+            Dispatcher.InvokeAsync(() =>
+            {
+                UsageText.Text = $"Осталось {FormatBytes(remaining)} из {FormatBytes(usage.limit_bytes)}";
+                UsageText.Foreground = barColor;
+                UsageBar.Width  = 160 * fraction;
+                UsageBar.Fill   = barColor;
+                UsageBanner.Visibility = Visibility.Visible;
+            });
+        }
+        catch { }
+    }
 
     private async Task LoadServersAsync()
     {

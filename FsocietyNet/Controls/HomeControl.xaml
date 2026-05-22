@@ -22,6 +22,19 @@
                                FontFamily="Consolas" FontSize="10"
                                Margin="0,4,0,0" Visibility="Collapsed"/>
                 </StackPanel>
+                <!-- Баннер бесплатного трафика (справа) -->
+                <StackPanel x:Name="UsageBanner" HorizontalAlignment="Right"
+                            VerticalAlignment="Center" Visibility="Collapsed">
+                    <TextBlock x:Name="UsageText"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontFamily="Consolas" FontSize="10"
+                               HorizontalAlignment="Right"/>
+                    <Grid Margin="0,4,0,0" Height="3" Width="160">
+                        <Rectangle Fill="{StaticResource BorderBrush2}" RadiusX="1" RadiusY="1"/>
+                        <Rectangle x:Name="UsageBar" Fill="{StaticResource AccentBrush}"
+                                   RadiusX="1" RadiusY="1" HorizontalAlignment="Left"/>
+                    </Grid>
+                </StackPanel>
             </Grid>
         </Border>
 
