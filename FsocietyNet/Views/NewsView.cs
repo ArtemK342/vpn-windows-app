@@ -43,6 +43,8 @@ public sealed class NewsView : UserControl
 
         if (!Api.DemoMode && ReadCache() is { } cached) Show(cached.page, cached.json);
         _ = Refresh();
+        var shown = false;
+        Loaded += (_, _) => { if (shown) _ = Refresh(); shown = true; };   // kept between tab switches
     }
 
     static (NewsPage page, string json)? ReadCache()

@@ -50,17 +50,31 @@ public sealed partial class SettingsView : UserControl
         left.Children.Add(_menu);
         root.Children.Add(left);
 
-        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _section };
-        Grid.SetColumn(scroll, 2);
-        root.Children.Add(scroll);
+        _scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _section };
+        Grid.SetColumn(_scroll, 2);
+        root.Children.Add(_scroll);
         Content = root;
 
         var start = section != null && _items.ContainsKey(section) ? section : "account";
         _items[start].IsChecked = true;
     }
 
+    readonly ScrollViewer _scroll;
+    string? _current;
+
+    /// <summary>Settings → a section from outside (e.g. the update banner).</summary>
+    public void ShowSection(string id)
+    {
+        if (!_items.TryGetValue(id, out var rb)) return;
+        if (rb.IsChecked == true) Open(id); else rb.IsChecked = true;
+    }
+
     void Open(string id)
     {
+        // The same section rebuilt (e.g. after a mode switch) keeps its scroll position; another one starts at the top
+        var keep = id == _current ? _scroll.VerticalOffset : 0;
+        _current = id;
+        Dispatcher.BeginInvoke(() => _scroll.ScrollToVerticalOffset(keep), System.Windows.Threading.DispatcherPriority.Loaded);
         _section.Content = id switch
         {
             "connection" => Connection(),

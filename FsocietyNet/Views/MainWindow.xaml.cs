@@ -13,6 +13,7 @@ public partial class MainWindow : Window
 {
     public static MainWindow? Instance { get; private set; }
     HomeView? _home;
+    readonly Dictionary<RadioButton, FrameworkElement> _views = [];
     bool _reloading;
     static bool _trayHintShown;
     bool _dialogDismissable;
@@ -66,6 +67,7 @@ public partial class MainWindow : Window
         _unreadTimer.Stop();
         _home?.Detach();
         _home = null;
+        _views.Clear();
         Sidebar.Visibility = Visibility.Collapsed;
         SideCol.Width = new GridLength(0);
         Page.Content = new LoginView();
@@ -77,6 +79,7 @@ public partial class MainWindow : Window
         Sidebar.Visibility = Visibility.Visible;
         SideCol.Width = new GridLength(236);
         _home?.Detach();
+        _views.Clear();
         _home = new HomeView();
         NavHome.IsChecked = null;
         NavHome.IsChecked = true;
@@ -117,11 +120,18 @@ public partial class MainWindow : Window
     void Nav_Checked(object sender, RoutedEventArgs e)
     {
         if (Page == null) return;
-        FrameworkElement view = sender == NavRules ? new RulesView()
-            : sender == NavNews ? new NewsView()
-            : sender == NavSupport ? new SupportView()
-            : sender == NavSettings ? new SettingsView(_pendingSection)
-            : (FrameworkElement)(_home ??= new HomeView());
+        // One instance per tab for the whole session: coming back shows the same section and scroll position
+        var rb = (RadioButton)sender;
+        if (rb == NavHome) _views[rb] = _home ??= new HomeView();
+        if (!_views.TryGetValue(rb, out var view))
+        {
+            view = rb == NavRules ? new RulesView()
+                : rb == NavNews ? new NewsView()
+                : rb == NavSupport ? new SupportView()
+                : new SettingsView(_pendingSection);
+            _views[rb] = view;
+        }
+        else if (rb == NavSettings && _pendingSection != null) ((SettingsView)view).ShowSection(_pendingSection);
         _pendingSection = null;
         Page.Content = view;
         view.Opacity = 0;

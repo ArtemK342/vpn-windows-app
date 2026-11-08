@@ -275,7 +275,7 @@ public static class Zapret
     /// <summary>service.bat :tcp_enable — zapret needs TCP timestamps.</summary>
     public static async Task EnableTcpTimestamps()
     {
-        var (_, o) = await Proc.Run("netsh", "interface tcp show global");
+        var (_, o) = await NetshTcpGlobal();
         if (Regex.IsMatch(o, @"timestamps\s*:\s*enabled", RegexOptions.IgnoreCase)) return;
         await Proc.Run("netsh", "interface tcp set global timestamps=enabled");
     }
@@ -298,15 +298,35 @@ public static class Zapret
         catch { return null; }
     }
 
-    static async Task<string> Sc(params string[] args)
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    static extern int GetOEMCP();
+
+    /// <summary>Console tools write in the OEM code page (866 on Russian Windows): read as UTF-8 it was «гбПе».</summary>
+    static Encoding Oem()
     {
-        var psi = new ProcessStartInfo("sc.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        try { return Encoding.GetEncoding(GetOEMCP()); } catch { return Encoding.UTF8; }
+    }
+
+    static async Task<(int code, string output)> ScRun(params string[] args)
+    {
+        var psi = new ProcessStartInfo("sc.exe")
+        {
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
+            StandardOutputEncoding = Oem(), StandardErrorEncoding = Oem(),
+        };
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var p = Process.Start(psi)!;
         var o = await p.StandardOutput.ReadToEndAsync() + await p.StandardError.ReadToEndAsync();
         await p.WaitForExitAsync();
-        return o.Trim();
+        return (p.ExitCode, o.Trim());
     }
+
+    static async Task<string> Sc(params string[] args) => (await ScRun(args)).output;
+
+    /// <summary>netsh in English whatever the Windows language (service.bat does «chcp 437» for the same reason).</summary>
+    static Task<(int code, string output)> NetshTcpGlobal() =>
+        Proc.Run("cmd.exe", "/c chcp 437 >nul & netsh interface tcp show global");
 
     static async Task StopService(string name)
     {
@@ -345,24 +365,27 @@ public static class Zapret
         return log.ToString();
     }
 
-    public static async Task<string> RemoveServices()
+    /// <summary>service.bat «Remove Services»: the zapret service, winws.exe and the WinDivert driver — as readable lines.</summary>
+    public static async Task<List<DiagItem>> RemoveServices()
     {
-        var log = new StringBuilder();
+        var list = new List<DiagItem>();
         if (ServiceState(ServiceName) != null)
         {
             await StopService(ServiceName);
-            log.AppendLine(await Sc("delete", ServiceName));
+            var (code, o) = await ScRun("delete", ServiceName);
+            list.Add(code == 0 ? new("ok", Loc.Get("zapret.service_removed")) : new("bad", Loc.F("zapret.remove_failed", ServiceName, o)));
         }
-        else log.AppendLine(Loc.Get("zapret.service_not_installed"));
-        KillAllWinws();
+        else list.Add(new("ok", Loc.Get("zapret.service_not_installed")));
+        if (WinwsRunning()) { KillAllWinws(); list.Add(new("ok", Loc.Get("zapret.winws_stopped"))); }
         foreach (var d in new[] { "WinDivert", "WinDivert14" })
         {
             if (ServiceState(d) == null) continue;
             await StopService(d);
-            if (ServiceState(d) != null) log.AppendLine(await Sc("delete", d));
+            var (code, o) = await ScRun("delete", d);
+            list.Add(code == 0 ? new("ok", Loc.F("zapret.driver_removed", d)) : new("bad", Loc.F("zapret.remove_failed", d, o)));
         }
         Log.I("zapret services removed");
-        return log.ToString().Trim();
+        return list;
     }
 
     public static List<DiagItem> Status()
@@ -543,7 +566,7 @@ public static class Zapret
     public static async Task<List<DiagItem>> Diagnostics()
     {
         var list = new List<DiagItem>();
-        var services = await Proc.Run("sc.exe", "query type= all state= all");
+        var services = await Proc.Run("cmd.exe", "/c chcp 437 >nul & sc query type= all state= all");
         var svcText = services.output;
         bool Has(string pattern) => Regex.IsMatch(svcText, pattern, RegexOptions.IgnoreCase);
 
@@ -557,7 +580,7 @@ public static class Zapret
         }
         catch { }
 
-        var (_, tcp) = await Proc.Run("netsh", "interface tcp show global");
+        var (_, tcp) = await NetshTcpGlobal();
         if (Regex.IsMatch(tcp, @"timestamps\s*:\s*enabled", RegexOptions.IgnoreCase)) list.Add(new("ok", Loc.Get("diag.ts_ok")));
         else
         {

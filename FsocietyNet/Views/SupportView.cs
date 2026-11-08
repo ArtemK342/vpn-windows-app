@@ -122,7 +122,8 @@ public sealed class SupportView : UserControl
         _ = LoadList();
         // Open ticket: new replies and «read by support» marks arrive without reopening it
         _poll.Tick += async (_, _) => await Poll();
-        Loaded += (_, _) => _poll.Start();
+        var shown = false;
+        Loaded += (_, _) => { _poll.Start(); if (shown) _ = LoadList(); shown = true; };
         Unloaded += (_, _) => _poll.Stop();
     }
 

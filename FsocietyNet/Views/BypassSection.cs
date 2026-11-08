@@ -29,11 +29,14 @@ public sealed partial class SettingsView
             zapretPanel.Visibility = v == "zapret" ? Visibility.Visible : Visibility.Collapsed;
             if (v == "byedpi" && St.BypassMode == "system")
             {
-                // ByeDPI only works from the server list: the zapret service would keep running unseen
+                // ByeDPI only works from the server list: a zapret service would keep running unseen
                 St.BypassMode = "server";
                 AppSettings.Save();
-                try { await Zapret.RemoveServices(); } catch (Exception e) { Log.E("zapret remove", e); }
-                Dialogs.Toast(Loc.Get("bypass.mode_server_on"));
+                if (Zapret.ServiceState("zapret") != null)
+                {
+                    try { await Zapret.RemoveServices(); } catch (Exception e) { Log.E("zapret remove", e); }
+                    Dialogs.Toast(Loc.Get("bypass.stopped"));
+                }
             }
             Zapret.NotifyModeChanged();
         }));
@@ -84,43 +87,45 @@ public sealed partial class SettingsView
             ("system", Loc.Get("bypass.mode_system"), Loc.Get("bypass.mode_system_desc")),
         }, St.BypassMode == "system" ? "system" : "server", async v => await SetMode(v)));
 
-        // ── Strategy ──
+        // ── Strategy; in «always» mode also its state and start / stop (choosing a strategy starts it) ──
+        var system = St.BypassMode == "system";
         var strategyText = new TextBlock { FontFamily = (FontFamily)FindResource("MonoFont"), FontSize = 14, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 0) };
         void ShowStrategy() => strategyText.Text = St.ZapretStrategy;
         ShowStrategy();
-        var serviceStrategy = new TextBlock { Style = S("T.Note"), Margin = new Thickness(0, 4, 0, 0) };
-        void ShowServiceStrategy()
+        var state = new TextBlock { FontFamily = (FontFamily)FindResource("MonoFont"), FontSize = 12, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+        Button? startStop = null;
+        void ShowState()
         {
-            var s = Zapret.InstalledStrategy();
-            serviceStrategy.Text = s == null ? "" : Loc.F("bypass.service_uses", s);
-            serviceStrategy.Visibility = s == null ? Visibility.Collapsed : Visibility.Visible;
+            if (!system) { state.Visibility = Visibility.Collapsed; if (startStop != null) startStop.Visibility = Visibility.Collapsed; return; }
+            var running = Zapret.ServiceRunning;
+            state.Text = running ? Loc.F("bypass.state_on", Zapret.InstalledStrategy() ?? St.ZapretStrategy) : Loc.Get("bypass.state_off");
+            state.Foreground = Ui.Res(running ? "AccentTextBrush" : "MutedBrush");
+            if (startStop == null) return;
+            startStop.Content = Loc.Get(running ? "bypass.stop" : "bypass.start");
+            startStop.Style = S(running ? "Btn.Danger" : "Btn.Primary");
+            startStop.Margin = new Thickness(0, 0, 8, 8);
         }
-        ShowServiceStrategy();
-        panel.Children.Add(Box(Title("bypass.strategy"), Desc(Loc.Get("bypass.strategy_desc")), strategyText, serviceStrategy,
+        startStop = Btn("bypass.start", "Btn.Primary", async _ =>
+        {
+            if (Zapret.ServiceRunning) await StopSystem(); else await StartSystem();
+            ShowState();
+        });
+        ShowState();
+        panel.Children.Add(Box(Title("bypass.strategy"), Desc(Loc.Get(system ? "bypass.strategy_desc_system" : "bypass.strategy_desc")), strategyText, state,
             Buttons(
-                Btn("bypass.strategy_pick", "Btn.Secondary", async _ => { if (await PickStrategy()) { ShowStrategy(); await ApplyIfSystem(); } }),
-                Btn("bypass.tests", "Btn.Primary", async _ => { if (await RunTests()) { ShowStrategy(); await ApplyIfSystem(); } }))));
-
-        // ── SERVICE ──
-        panel.Children.Add(Label(Loc.Get("bypass.section_service"), 26));
-        var status = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
-        void ShowStatus() { status.Children.Clear(); foreach (var d in Zapret.Status()) status.Children.Add(DiagRow(d)); ShowServiceStrategy(); }
-        ShowStatus();
-        panel.Children.Add(Box(Title("bypass.service"), Desc(Loc.Get("bypass.service_desc")), status,
-            Buttons(
-                Btn("bypass.remove", "Btn.Danger", async _ =>
+                startStop,
+                Btn("bypass.strategy_pick", "Btn.Secondary", async _ =>
                 {
-                    if (!await Dialogs.Confirm(Loc.Get("bypass.remove"), Loc.Get("bypass.remove_confirm"), Loc.Get("bypass.remove"), danger: true)) return;
-                    if (Vpn.Active && Vpn.EngineKind == "bypass") await Vpn.Disconnect(false);
-                    var log = await Zapret.RemoveServices();
-                    var wasSystem = St.BypassMode == "system";
-                    St.BypassMode = "server";
-                    AppSettings.Save();
-                    Zapret.NotifyModeChanged();
-                    await ShowLog(Loc.Get("bypass.remove"), log, Zapret.Status());
-                    if (wasSystem) Open("bypass"); else ShowStatus();
+                    if (!await PickStrategy()) return;
+                    ShowStrategy();
+                    if (system) { await StartSystem(); ShowState(); } else Dialogs.Toast(Loc.F("bypass.strategy_set", St.ZapretStrategy));
                 }),
-                Btn("bypass.status", "Btn.Secondary", async _ => { ShowStatus(); await ShowLog(Loc.Get("bypass.status"), null, Zapret.Status()); }))));
+                Btn("bypass.tests", system ? "Btn.Secondary" : "Btn.Primary", async _ =>
+                {
+                    if (!await RunTests()) return;
+                    ShowStrategy();
+                    if (system) { await StartSystem(); ShowState(); }
+                }))));
 
         // ── SETTINGS ──
         panel.Children.Add(Label(Loc.Get("bypass.section_settings"), 26));
@@ -217,7 +222,16 @@ public sealed partial class SettingsView
         panel.Children.Add(Label(Loc.Get("bypass.section_tools"), 26));
         panel.Children.Add(Box(Desc(Loc.Get("bypass.tools_desc")), Buttons(
             Btn("bypass.diagnostics", "Btn.Secondary", async _ => await Diagnostics()),
-            Btn("bypass.tests", "Btn.Secondary", async _ => { if (await RunTests()) { ShowStrategy(); await ApplyIfSystem(); } }),
+            Btn("bypass.status", "Btn.Secondary", async _ => await ShowLog(Loc.Get("bypass.status"), null, Zapret.Status())),
+            Btn("bypass.remove", "Btn.Secondary", async _ =>
+            {
+                if (!await Dialogs.Confirm(Loc.Get("bypass.remove"), Loc.Get("bypass.remove_confirm"), Loc.Get("bypass.remove"), danger: true)) return;
+                if (Vpn.Active && Vpn.EngineKind == "bypass") await Vpn.Disconnect(false);
+                var items = await Zapret.RemoveServices();
+                Zapret.NotifyModeChanged();
+                ShowState();
+                await ShowLog(Loc.Get("bypass.remove"), null, items.Concat(Zapret.Status()));
+            }),
             Btn("bypass.user_list", "Btn.Ghost", _ =>
             {
                 try { Process.Start(new ProcessStartInfo("notepad.exe", $"\"{Zapret.UserListPath("list-general-user.txt")}\"") { UseShellExecute = false }); }
@@ -227,35 +241,40 @@ public sealed partial class SettingsView
         panel.Children.Add(Note(Loc.Get("bypass.credits"), 14));
     }
 
-    /// <summary>Server list ⇄ always (installs / removes the zapret service with the chosen strategy).</summary>
+    /// <summary>
+    /// Server list ⇄ always. Choosing «always» only changes where the bypass is turned on — it is started by
+    /// «Start» or by choosing a strategy. Back to the server list stops a running service (it would run unseen).
+    /// </summary>
     async Task SetMode(string mode)
     {
         if (mode == St.BypassMode) return;
-        try
-        {
-            if (mode == "system")
-            {
-                if (Vpn.Active && Vpn.EngineKind == "bypass") await Vpn.Disconnect(false);
-                await Zapret.InstallService(St.ZapretStrategy);
-                if (!Zapret.ServiceRunning) throw new InvalidOperationException(Loc.Get("bypass.mode_system_failed"));
-                St.BypassMode = "system";
-                Dialogs.Toast(Loc.F("bypass.mode_system_on", St.ZapretStrategy));
-            }
-            else
-            {
-                await Zapret.RemoveServices();
-                St.BypassMode = "server";
-                Dialogs.Toast(Loc.Get("bypass.mode_server_on"));
-            }
-        }
-        catch (Exception e)
-        {
-            Log.E("bypass mode", e);
-            await Dialogs.Info(Loc.Get("bypass.mode_title"), e.Message);
-        }
+        St.BypassMode = mode;
         AppSettings.Save();
+        if (mode == "server" && Zapret.ServiceState("zapret") != null)
+        {
+            try { await Zapret.RemoveServices(); Dialogs.Toast(Loc.Get("bypass.stopped")); }
+            catch (Exception e) { Log.E("zapret remove", e); }
+        }
+        else if (mode == "system") Dialogs.Toast(Loc.Get("bypass.mode_system_hint"));
         Zapret.NotifyModeChanged();
-        Open("bypass");   // the switch shows what really happened
+        Open("bypass");   // the strategy card shows start / stop now
+    }
+
+    /// <summary>«Always» mode: the zapret service with the chosen strategy.</summary>
+    static async Task StartSystem()
+    {
+        if (Vpn.Active && Vpn.EngineKind == "bypass") await Vpn.Disconnect(false);
+        await Zapret.InstallService(St.ZapretStrategy);
+        Zapret.NotifyModeChanged();
+        if (Zapret.ServiceRunning) Dialogs.Toast(Loc.F("bypass.mode_system_on", St.ZapretStrategy));
+        else await Dialogs.Info(Loc.Get("bypass.start"), Loc.Get("bypass.mode_system_failed"));
+    }
+
+    static async Task StopSystem()
+    {
+        await Zapret.RemoveServices();
+        Zapret.NotifyModeChanged();
+        Dialogs.Toast(Loc.Get("bypass.stopped"));
     }
 
     /// <summary>System mode: settings take effect at once — the service is reinstalled with them.</summary>

@@ -61,6 +61,7 @@ public static class Renderer
                      ("settings_protocols", "10-settings-protocols"), ("settings_bypass", "10b-settings-bypass"), ("settings_appearance", "11-settings-appearance"),
                      ("settings_journal", "12-settings-journal"), ("settings_about", "13-settings-about") })
         {
+            AppSettings.Current.BypassMode = page == "settings_bypass" ? "system" : "server";
             w.Go(page);
             await Settle(page == "support" ? 900 : 500);
             if (page == "support" && w.Page.Content is SupportView sv) { await sv.OpenFirstForPreview(); await Settle(300); }

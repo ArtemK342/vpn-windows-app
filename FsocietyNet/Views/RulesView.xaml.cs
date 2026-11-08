@@ -43,9 +43,9 @@ public partial class RulesView : UserControl
         _loading = false;
         RefreshSites();
         RefreshAppsHeader();
-        Vpn.Changed += UpdateApplyBar;
+        // The view is kept between tab switches: subscribe while it is shown
+        Loaded += (_, _) => { Vpn.Changed += UpdateApplyBar; UpdateApplyBar(); };
         Unloaded += (_, _) => Vpn.Changed -= UpdateApplyBar;
-        UpdateApplyBar();
         _ = LoadApps();
     }
 
