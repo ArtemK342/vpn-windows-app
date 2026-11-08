@@ -101,7 +101,24 @@ public static class Net
         return null;
     }
 
+    /// <summary>
+    /// Round trip to a server, ms; -1 = unknown. ≤ 2 ms to a public address is not real (our servers are abroad):
+    /// another VPN / proxy on this PC answers pings locally — shown as «—» instead of a fake «1 мс».
+    /// </summary>
     public static async Task<int> Ping(string host)
+    {
+        var ms = await RawPing(host);
+        if (ms is >= 0 and <= 2 && IPAddress.TryParse(host, out var ip) && !IsPrivate(ip)) return -1;
+        return ms;
+    }
+
+    static bool IsPrivate(IPAddress ip)
+    {
+        var b = ip.GetAddressBytes();
+        return b.Length == 4 && (b[0] == 10 || b[0] == 127 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168));
+    }
+
+    static async Task<int> RawPing(string host)
     {
         if (string.IsNullOrEmpty(host)) return -1;
         try
