@@ -64,16 +64,16 @@
                         <TextBlock x:Name="KsDescText"
                                    Text="Весь трафик будет заблокирован, пока VPN не подключён."
                                    Foreground="{StaticResource TextMutedBrush}"
-                                   FontFamily="Consolas" FontSize="10"
+                                   FontFamily="Segoe UI" FontSize="13"
                                    TextWrapping="Wrap" Margin="0,4,0,0"/>
                     </StackPanel>
                     <Border x:Name="KsToggle" Grid.Column="1"
-                            Width="52" Height="28" CornerRadius="14"
+                            Width="40" Height="22" CornerRadius="11"
                             Background="{StaticResource BorderBrush2}"
                             Cursor="Hand" MouseLeftButtonUp="KsToggle_Click"
                             VerticalAlignment="Center">
                         <Grid>
-                            <Ellipse x:Name="KsThumb" Width="22" Height="22"
+                            <Ellipse x:Name="KsThumb" Width="16" Height="16"
                                      Fill="{StaticResource TextMutedBrush}"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"/>
                         </Grid>
@@ -96,12 +96,12 @@
                                    FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
                     </StackPanel>
                     <Border x:Name="AutoStartToggle" Grid.Column="1"
-                            Width="52" Height="28" CornerRadius="14"
+                            Width="40" Height="22" CornerRadius="11"
                             Background="{StaticResource BorderBrush2}"
                             Cursor="Hand" MouseLeftButtonUp="AutoStartToggle_Click"
                             VerticalAlignment="Center">
                         <Grid>
-                            <Ellipse x:Name="AutoStartThumb" Width="22" Height="22"
+                            <Ellipse x:Name="AutoStartThumb" Width="16" Height="16"
                                      Fill="{StaticResource TextMutedBrush}"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"/>
                         </Grid>
@@ -124,12 +124,12 @@
                                    FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
                     </StackPanel>
                     <Border x:Name="AutoConnectToggle" Grid.Column="1"
-                            Width="52" Height="28" CornerRadius="14"
+                            Width="40" Height="22" CornerRadius="11"
                             Background="{StaticResource BorderBrush2}"
                             Cursor="Hand" MouseLeftButtonUp="AutoConnectToggle_Click"
                             VerticalAlignment="Center">
                         <Grid>
-                            <Ellipse x:Name="AutoConnectThumb" Width="22" Height="22"
+                            <Ellipse x:Name="AutoConnectThumb" Width="16" Height="16"
                                      Fill="{StaticResource TextMutedBrush}"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"/>
                         </Grid>
@@ -152,12 +152,12 @@
                                    FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
                     </StackPanel>
                     <Border x:Name="AutoReconnectToggle" Grid.Column="1"
-                            Width="52" Height="28" CornerRadius="14"
+                            Width="40" Height="22" CornerRadius="11"
                             Background="{StaticResource BorderBrush2}"
                             Cursor="Hand" MouseLeftButtonUp="AutoReconnectToggle_Click"
                             VerticalAlignment="Center">
                         <Grid>
-                            <Ellipse x:Name="AutoReconnectThumb" Width="22" Height="22"
+                            <Ellipse x:Name="AutoReconnectThumb" Width="16" Height="16"
                                      Fill="{StaticResource TextMutedBrush}"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"/>
                         </Grid>

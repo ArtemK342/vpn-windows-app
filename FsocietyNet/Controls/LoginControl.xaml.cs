@@ -30,6 +30,8 @@ public partial class LoginControl : UserControl
         {
             var resp = await _api.LoginAsync(email, password);
             MainWindow.SaveToken(resp.access_token);
+            if (!string.IsNullOrEmpty(resp.refresh_token))
+                MainWindow.SaveRefreshToken(resp.refresh_token);
             MainWindow.Navigate(new AppShell(resp.access_token));
         }
         catch (Exception ex) when (ex.Message.Contains("401") || ex.Message.Contains("Unauthorized"))

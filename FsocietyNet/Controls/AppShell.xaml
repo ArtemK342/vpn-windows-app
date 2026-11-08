@@ -4,41 +4,54 @@
              Background="{StaticResource BgDarkBrush}">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="52"/>   <!-- Row 0: tab bar -->
-            <RowDefinition Height="Auto"/> <!-- Row 1: update banner (collapsed by default) -->
+            <RowDefinition Height="52"/>   <!-- Row 0: tab bar / title bar -->
+            <RowDefinition Height="Auto"/> <!-- Row 1: update banner -->
             <RowDefinition Height="*"/>    <!-- Row 2: content -->
         </Grid.RowDefinitions>
 
-        <!-- Верхняя навигация -->
+        <!-- Title bar / Nav bar -->
         <Border Grid.Row="0" Background="{StaticResource Bg2Brush}"
                 BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,0,0,1">
-            <Grid Margin="20,0">
+            <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>  <!-- Logo -->
+                    <ColumnDefinition Width="*"/>     <!-- Tabs -->
+                    <ColumnDefinition Width="Auto"/>  <!-- Window controls -->
                 </Grid.ColumnDefinitions>
 
-                <!-- Логотип -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="[f]" Foreground="{StaticResource AccentBrush}"
-                               FontFamily="Consolas" FontSize="17" FontWeight="Bold"/>
-                    <TextBlock Text="society" Foreground="{StaticResource TextPrimaryBrush}"
-                               FontFamily="Consolas" FontSize="17" FontWeight="Bold"/>
+                <!-- Логотип (draggable area behind it) -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                            Margin="20,0,0,0"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="[" Foreground="{StaticResource TextMutedBrush}"
+                               FontFamily="Consolas" FontSize="16" FontWeight="Bold"/>
+                    <TextBlock Text="f" Foreground="{StaticResource AccentBrush}"
+                               FontFamily="Consolas" FontSize="16" FontWeight="Bold"/>
+                    <TextBlock Text="]society" Foreground="{StaticResource TextPrimaryBrush}"
+                               FontFamily="Consolas" FontSize="16" FontWeight="Bold"/>
                 </StackPanel>
 
                 <!-- Вкладки -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="HomeTabBtn"      Content="ГЛАВНАЯ"
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Right" Margin="0,0,4,0">
+                    <Button x:Name="HomeTabBtn"      Content="Главная"
                             Style="{StaticResource TabButtonActive}" Click="HomeTab_Click"/>
-                    <Button x:Name="TunnelTabBtn"    Content="ТУННЕЛИРОВАНИЕ"
+                    <Button x:Name="TunnelTabBtn"    Content="Туннель"
                             Style="{StaticResource TabButton}"       Click="TunnelTab_Click"/>
-                    <Button x:Name="StatsTabBtn"     Content="СТАТИСТИКА"
+                    <Button x:Name="StatsTabBtn"     Content="Статистика"
                             Style="{StaticResource TabButton}"       Click="StatsTab_Click"/>
-                    <Button x:Name="SupportTabBtn"   Content="ПОДДЕРЖКА"
+                    <Button x:Name="SupportTabBtn"   Content="Поддержка"
                             Style="{StaticResource TabButton}"       Click="SupportTab_Click"/>
-                    <Button x:Name="SettingsTabBtn"  Content="НАСТРОЙКИ"
+                    <Button x:Name="SettingsTabBtn"  Content="Настройки"
                             Style="{StaticResource TabButton}"       Click="SettingsTab_Click"/>
+                </StackPanel>
+
+                <!-- Кнопки управления окном -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="—" Style="{StaticResource WinCtrlBtn}"
+                            Click="MinimizeBtn_Click"/>
+                    <Button Content="✕" Style="{StaticResource WinCloseBtn}"
+                            Click="CloseBtn_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -51,7 +64,8 @@
                            FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
                 <Button x:Name="UpdateBtn" HorizontalAlignment="Right"
                         Content="Скачать →" Style="{StaticResource PrimaryButton}"
-                        Height="30" Padding="14,0" FontSize="11" Click="UpdateBtn_Click"/>
+                        Height="30" Padding="14,0" FontSize="11" Click="UpdateBtn_Click"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
             </Grid>
         </Border>
 

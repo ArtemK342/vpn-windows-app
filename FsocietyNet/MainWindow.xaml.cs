@@ -35,6 +35,8 @@ public partial class MainWindow : Window
             Dispatcher.InvokeAsync(() => Tray?.SetConnected(connected, serverName));
         };
 
+        ApiService.SessionExpired += OnSessionExpired;
+
         Closing += MainWindow_Closing;
 
         // Extract amneziawg.exe + wintun.dll from embedded resources
@@ -114,4 +116,48 @@ public partial class MainWindow : Window
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "FsocietyNet", "token.txt");
+
+    public static void SaveRefreshToken(string token)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(RefreshTokenPath())!);
+        File.WriteAllText(RefreshTokenPath(), token);
+    }
+
+    public static string? LoadRefreshToken()
+    {
+        var path = RefreshTokenPath();
+        return File.Exists(path) ? File.ReadAllText(path).Trim() : null;
+    }
+
+    public static void ClearRefreshToken()
+    {
+        var path = RefreshTokenPath();
+        if (File.Exists(path)) File.Delete(path);
+    }
+
+    private static string RefreshTokenPath() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "FsocietyNet", "refresh_token.txt");
+
+    private async void OnSessionExpired()
+    {
+        var refreshToken = LoadRefreshToken();
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            var result = await new ApiService().RefreshAsync(refreshToken);
+            if (result != null && !string.IsNullOrEmpty(result.access_token))
+            {
+                SaveToken(result.access_token);
+                if (!string.IsNullOrEmpty(result.refresh_token))
+                    SaveRefreshToken(result.refresh_token);
+                Dispatcher.Invoke(() => Navigate(new AppShell(result.access_token)));
+                return;
+            }
+        }
+        // Refresh failed — go to login
+        ClearToken();
+        ClearRefreshToken();
+        Dispatcher.Invoke(() => Navigate(new LoginControl()));
+    }
 }

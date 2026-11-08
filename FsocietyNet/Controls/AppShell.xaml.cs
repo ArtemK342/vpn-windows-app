@@ -83,4 +83,10 @@ public partial class AppShell : UserControl
         SettingsTabBtn.Style = inactive;
         active.Style = accent!;
     }
+
+    private void MinimizeBtn_Click(object sender, RoutedEventArgs e) =>
+        Application.Current.MainWindow!.WindowState = WindowState.Minimized;
+
+    private void CloseBtn_Click(object sender, RoutedEventArgs e) =>
+        Application.Current.MainWindow!.Close();
 }

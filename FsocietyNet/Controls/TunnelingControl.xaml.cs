@@ -61,11 +61,11 @@ public partial class TunnelingControl : UserControl
 
     private void UpdateAppModeButtons()
     {
-        var active   = Application.Current.Resources["PrimaryButton"]   as Style;
-        var inactive = Application.Current.Resources["SecondaryButton"] as Style;
+        var active   = Application.Current.Resources["SegBtnActive"] as Style;
+        var inactive = Application.Current.Resources["SegBtn"]       as Style;
         AppModeAllBtn.Style = _cfg.AppTunnelMode == TunnelMode.All     ? active : inactive;
-        AppModeIncBtn.Style = _cfg.AppTunnelMode == TunnelMode.Include  ? active : inactive;
-        AppModeExcBtn.Style = _cfg.AppTunnelMode == TunnelMode.Exclude  ? active : inactive;
+        AppModeIncBtn.Style = _cfg.AppTunnelMode == TunnelMode.Include ? active : inactive;
+        AppModeExcBtn.Style = _cfg.AppTunnelMode == TunnelMode.Exclude ? active : inactive;
     }
 
     private void UpdateAppModeDesc()
@@ -92,11 +92,11 @@ public partial class TunnelingControl : UserControl
 
     private void UpdateSiteModeButtons()
     {
-        var active   = Application.Current.Resources["PrimaryButton"]   as Style;
-        var inactive = Application.Current.Resources["SecondaryButton"] as Style;
+        var active   = Application.Current.Resources["SegBtnActive"] as Style;
+        var inactive = Application.Current.Resources["SegBtn"]       as Style;
         SiteModeAllBtn.Style = _cfg.SiteTunnelMode == TunnelMode.All     ? active : inactive;
-        SiteModeIncBtn.Style = _cfg.SiteTunnelMode == TunnelMode.Include  ? active : inactive;
-        SiteModeExcBtn.Style = _cfg.SiteTunnelMode == TunnelMode.Exclude  ? active : inactive;
+        SiteModeIncBtn.Style = _cfg.SiteTunnelMode == TunnelMode.Include ? active : inactive;
+        SiteModeExcBtn.Style = _cfg.SiteTunnelMode == TunnelMode.Exclude ? active : inactive;
     }
 
     private void UpdateSiteModeDesc()

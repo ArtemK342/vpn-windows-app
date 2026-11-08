@@ -10,12 +10,93 @@
     <SolidColorBrush x:Key="TextMutedBrush"   Color="#888892"/>
     <SolidColorBrush x:Key="ErrorRedBrush"    Color="#FF4444"/>
 
+    <!-- Window Control Buttons (minimize / close) -->
+    <Style x:Key="WinCtrlBtn" TargetType="Button">
+        <Setter Property="Background"     Value="Transparent"/>
+        <Setter Property="Foreground"     Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Width"          Value="46"/>
+        <Setter Property="FontSize"       Value="13"/>
+        <Setter Property="FontFamily"     Value="Segoe UI"/>
+        <Setter Property="Cursor"         Value="Hand"/>
+        <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bg" Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="#18FFFFFF"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="WinCloseBtn" TargetType="Button" BasedOn="{StaticResource WinCtrlBtn}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bg" Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="#C42B1C"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Segmented mode selector buttons (Tunneling tab) -->
+    <Style x:Key="SegBtn" TargetType="Button">
+        <Setter Property="Background"     Value="Transparent"/>
+        <Setter Property="Foreground"     Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding"        Value="16,7"/>
+        <Setter Property="FontFamily"     Value="Segoe UI"/>
+        <Setter Property="FontSize"       Value="12"/>
+        <Setter Property="Cursor"         Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bg" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="#12FFFFFF"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegBtnActive" TargetType="Button" BasedOn="{StaticResource SegBtn}">
+        <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+        <Setter Property="Foreground" Value="#0D0D0D"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
     <!-- Primary Button -->
     <Style x:Key="PrimaryButton" TargetType="Button">
         <Setter Property="Background"       Value="{StaticResource AccentBrush}"/>
         <Setter Property="Foreground"       Value="#0D0D0D"/>
-        <Setter Property="FontFamily"       Value="Consolas"/>
-        <Setter Property="FontWeight"       Value="Bold"/>
+        <Setter Property="FontFamily"       Value="Segoe UI"/>
+        <Setter Property="FontWeight"       Value="SemiBold"/>
         <Setter Property="FontSize"         Value="13"/>
         <Setter Property="Height"           Value="48"/>
         <Setter Property="BorderThickness"  Value="0"/>
@@ -60,7 +141,7 @@
     <!-- Disconnect Button -->
     <Style x:Key="DisconnectButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
         <Setter Property="Background" Value="{StaticResource ErrorRedBrush}"/>
-        <Setter Property="Foreground" Value="#0D0D0D"/>
+        <Setter Property="Foreground" Value="White"/>
     </Style>
 
     <!-- TextBox -->
@@ -69,7 +150,7 @@
         <Setter Property="Foreground"     Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush"    Value="{StaticResource BorderBrush2}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="FontFamily"     Value="Consolas"/>
+        <Setter Property="FontFamily"     Value="Segoe UI"/>
         <Setter Property="FontSize"       Value="13"/>
         <Setter Property="Padding"        Value="10,8"/>
         <Setter Property="CaretBrush"     Value="{StaticResource AccentBrush}"/>
@@ -86,7 +167,7 @@
         <Setter Property="Foreground"     Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush"    Value="{StaticResource BorderBrush2}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="FontFamily"     Value="Consolas"/>
+        <Setter Property="FontFamily"     Value="Segoe UI"/>
         <Setter Property="FontSize"       Value="13"/>
         <Setter Property="Padding"        Value="10,8"/>
         <Style.Triggers>
@@ -102,11 +183,12 @@
         <Setter Property="Foreground"      Value="{StaticResource TextMutedBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,2"/>
         <Setter Property="BorderBrush"     Value="Transparent"/>
-        <Setter Property="FontFamily"      Value="Consolas"/>
+        <Setter Property="FontFamily"      Value="Segoe UI"/>
         <Setter Property="FontWeight"      Value="Normal"/>
-        <Setter Property="FontSize"        Value="11"/>
-        <Setter Property="Padding"         Value="18,0"/>
+        <Setter Property="FontSize"        Value="12"/>
+        <Setter Property="Padding"         Value="16,0"/>
         <Setter Property="Cursor"          Value="Hand"/>
+        <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -128,7 +210,7 @@
 
     <Style x:Key="TabButtonActive" TargetType="Button" BasedOn="{StaticResource TabButton}">
         <Setter Property="Foreground"  Value="{StaticResource AccentBrush}"/>
-        <Setter Property="FontWeight"  Value="Bold"/>
+        <Setter Property="FontWeight"  Value="SemiBold"/>
         <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
     </Style>
 
