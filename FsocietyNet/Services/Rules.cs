@@ -307,9 +307,20 @@ public static class AppScan
                 if (Environment.TickCount64 > deadline) break;
                 try
                 {
-                    string target = shell?.CreateShortcut(lnk).TargetPath ?? "";
+                    var sc = shell?.CreateShortcut(lnk);
+                    string target = sc?.TargetPath ?? "";
                     if (!target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(target)) continue;
                     var exe = Path.GetFileName(target);
+                    // Squirrel launchers (Discord, Slack, Teams…): «Update.exe --processStart Discord.exe» — the
+                    // program itself is Discord.exe; with Update.exe in the rule its traffic never matched
+                    if (exe.Equals("Update.exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string args = sc?.Arguments ?? "";
+                        var m = System.Text.RegularExpressions.Regex.Match(args, @"--processStart(?:=|\s+)""?([^""\s]+\.exe)""?",
+                            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (!m.Success) continue;
+                        exe = m.Groups[1].Value;
+                    }
                     var low = exe.ToLowerInvariant();
                     if (low.Contains("unins") || low.Contains("uninstall") || low.Contains("setup") || low is "explorer.exe" or "cmd.exe")
                         continue;

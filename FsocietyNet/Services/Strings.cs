@@ -133,6 +133,7 @@ public static class Strings
         ["home.servers_title"] = ("Где подключиться", "Where to connect"),
         ["home.tab_all"] = ("ВСЕ", "ALL"), ["home.tab_fav"] = ("★ ИЗБРАННЫЕ", "★ FAVOURITES"),
         ["home.refresh"] = ("Обновить список и пинг", "Refresh list and ping"),
+        ["home.ping_other_vpn"] = ("// Пинг не виден: на ПК работает другой VPN и сам отвечает на проверки", "// No ping: another VPN on this PC answers the checks itself"),
         ["home.hint_right_click"] = ("// Правый клик по серверу — избранное и строка для другого приложения", "// Right-click a server — favourites and a line for another app"),
         ["home.no_servers"] = ("Нет доступных серверов", "No servers available"),
         ["home.fav_empty"] = ("Избранных пока нет — нажмите ★ у сервера", "No favourites yet — click ★ next to a server"),

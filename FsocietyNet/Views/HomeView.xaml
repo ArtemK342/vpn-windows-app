@@ -223,7 +223,8 @@
                         <Button x:Name="RetryBtn" Style="{StaticResource Btn.Secondary}" Content="{v:T common.retry}" Margin="0,12,0,0"
                                 HorizontalAlignment="Center" Click="Refresh_Click" Visibility="Collapsed"/>
                     </StackPanel>
-                    <TextBlock Grid.Row="2" Text="{v:T home.hint_right_click}" Style="{StaticResource T.Note}" Margin="22,0,22,14"/>
+                    <TextBlock x:Name="ListHint" Grid.Row="2" Text="{v:T home.hint_right_click}" Style="{StaticResource T.Note}" Margin="22,0,22,14"
+                               TextWrapping="Wrap"/>
                 </Grid>
             </Border>
         </Grid>

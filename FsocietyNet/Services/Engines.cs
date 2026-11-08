@@ -102,15 +102,27 @@ public static class Net
     }
 
     /// <summary>
-    /// Round trip to a server, ms; -1 = unknown. ≤ 2 ms to a public address is not real (our servers are abroad):
-    /// another VPN / proxy on this PC answers pings locally — shown as «—» instead of a fake «1 мс».
+    /// Round trip to a server, ms; -1 = unknown. ICMP, then TCP connect to 443. ≤ 2 ms to a public address is not
+    /// real (our servers are abroad): another VPN / proxy on this PC in TUN mode answers pings and TCP handshakes
+    /// itself (checked: «connected» in 2 ms even to a port where nothing listens). Then «—» and
+    /// <see cref="OtherVpnSeen"/> — the servers card says why. Reading the server's first byte (SSH banner) does
+    /// not help: through such a VPN it took ~1 s or never came.
     /// </summary>
     public static async Task<int> Ping(string host)
     {
-        var ms = await RawPing(host);
-        if (ms is >= 0 and <= 2 && IPAddress.TryParse(host, out var ip) && !IsPrivate(ip)) return -1;
-        return ms;
+        if (string.IsNullOrEmpty(host)) return -1;
+        var local = IPAddress.TryParse(host, out var ip) && IsPrivate(ip);
+        var icmp = await Icmp(host);
+        if (icmp > 2 || (icmp >= 0 && local)) return icmp;
+        var tcp = await TcpConnect(host, 443);
+        if (tcp > 2 || (tcp >= 0 && local)) return tcp;
+        // Our own sing-box TUN answers the same way while connected — that is not «another VPN»
+        if (!local && (icmp >= 0 || tcp >= 0) && Vpn.Status == VpnStatus.Off) OtherVpnSeen = true;
+        return -1;
     }
+
+    /// <summary>A ping got a fake local answer — another VPN on this PC intercepts traffic (see <see cref="Ping"/>).</summary>
+    public static volatile bool OtherVpnSeen;
 
     static bool IsPrivate(IPAddress ip)
     {
@@ -118,24 +130,27 @@ public static class Net
         return b.Length == 4 && (b[0] == 10 || b[0] == 127 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168));
     }
 
-    static async Task<int> RawPing(string host)
+    static async Task<int> Icmp(string host)
     {
-        if (string.IsNullOrEmpty(host)) return -1;
         try
         {
             using var p = new Ping();
             var r = await p.SendPingAsync(host, 2500);
-            if (r.Status == IPStatus.Success) return (int)Math.Max(1, r.RoundtripTime);
+            if (r.Status == IPStatus.Success) return (int)Math.Max(0, r.RoundtripTime);
         }
         catch { }
-        // ICMP closed → TCP connect time to 443
+        return -1;
+    }
+
+    static async Task<int> TcpConnect(string host, int port)
+    {
         try
         {
             using var s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             using var cts = new CancellationTokenSource(2500);
             var sw = Stopwatch.StartNew();
-            await s.ConnectAsync(host, 443, cts.Token);
-            return (int)Math.Max(1, sw.ElapsedMilliseconds);
+            await s.ConnectAsync(host, port, cts.Token);
+            return (int)sw.ElapsedMilliseconds;
         }
         catch { return -1; }
     }
@@ -428,8 +443,7 @@ public sealed class SingBoxEngine : IEngine
         if (s.AppsActive)
         {
             var exclude = s.AppsMode == "exclude";
-            var names = new JsonArray(s.Apps.Select(a => (JsonNode)a.Exe).ToArray());
-            rules.Add(new JsonObject { ["process_name"] = names, ["outbound"] = exclude ? "direct" : "proxy" });
+            rules.Add(new JsonObject { ["process_path_regex"] = ExeRegex(s.Apps.Select(a => a.Exe)), ["outbound"] = exclude ? "direct" : "proxy" });
             if (!exclude) final = "direct";
         }
         if (s.SitesActive)
@@ -439,7 +453,7 @@ public sealed class SingBoxEngine : IEngine
             var domains = s.Sites.Where(e => !Rules.IsIp(e) && !Rules.IsProc(e)).ToArray();
             var cidrs = s.Sites.Where(Rules.IsIp).Select(e => e.Contains('/') ? e : e + "/32").ToArray();
             var procs = s.Sites.Where(Rules.IsProc).Select(Rules.ProcName).ToArray();
-            if (procs.Length > 0) rules.Add(new JsonObject { ["process_name"] = Arr(procs), ["outbound"] = matched });
+            if (procs.Length > 0) rules.Add(new JsonObject { ["process_path_regex"] = ExeRegex(procs), ["outbound"] = matched });
             if (domains.Length > 0)
             {
                 rules.Add(new JsonObject { ["domain_suffix"] = Arr(domains), ["outbound"] = matched });
@@ -463,6 +477,14 @@ public sealed class SingBoxEngine : IEngine
     }
 
     static JsonArray Arr(IEnumerable<string> v) => new(v.Select(x => (JsonNode)x).ToArray());
+
+    /// <summary>
+    /// Programs by file name, case-insensitive (Windows names are; process_name in sing-box compares exactly, so
+    /// «telegram.exe» from a shortcut missed «Telegram.exe»). RE2 syntax: only punctuation may be escaped.
+    /// </summary>
+    static JsonArray ExeRegex(IEnumerable<string> exes) =>
+        Arr(exes.Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(e => @"(?i)(?:^|[\\/])" + string.Concat(e.Select(c => @"\.+*?()|[]{}^$".Contains(c) ? "\\" + c : c.ToString())) + "$"));
 
     public async Task Start(string serverConfig)
     {

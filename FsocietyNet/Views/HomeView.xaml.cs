@@ -192,6 +192,7 @@ public partial class HomeView : UserControl
     async Task PingAll()
     {
         RefreshBtn.IsEnabled = false;
+        Net.OtherVpnSeen = false;
         foreach (var r in _rows.Where(r => string.IsNullOrEmpty(r.S.Host) && r.Ping == 0)) { r.Ping = -1; r.Refresh(); }
         var tasks = _rows.Where(r => r.S.CanConnect && !r.S.IsBypass && !string.IsNullOrEmpty(r.S.Host)).Select(async r =>
         {
@@ -202,6 +203,10 @@ public partial class HomeView : UserControl
         });
         await Task.WhenAll(tasks);
         RefreshBtn.IsEnabled = true;
+        // «—» у всех серверов: другой VPN на ПК сам отвечает на проверки — объяснить, а не молчать
+        ListHint.Text = Net.OtherVpnSeen && Vpn.Status == VpnStatus.Off
+            ? Loc.Get("home.hint_right_click") + "\n" + Loc.Get("home.ping_other_vpn")
+            : Loc.Get("home.hint_right_click");
     }
 
     async Task LoadUsage()
