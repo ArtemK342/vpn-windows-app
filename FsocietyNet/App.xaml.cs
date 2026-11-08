@@ -74,7 +74,8 @@ public partial class App : Application
 
         var w = new MainWindow();
         MainWindow = w;
-        Tray.WindowVisible = () => w.IsVisible && w.WindowState != WindowState.Minimized;
+        // Current.MainWindow, not `w`: a language change replaces the window
+        Tray.WindowVisible = () => Current.MainWindow is Window mw && mw.IsVisible && mw.WindowState != WindowState.Minimized;
         if (!args.Contains("--tray")) w.Show();
 
         // Second start → show this window
