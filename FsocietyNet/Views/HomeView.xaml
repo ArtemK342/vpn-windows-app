@@ -217,7 +217,28 @@
                     </Grid>
 
                     <ListBox x:Name="List" Grid.Row="1" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource PlainItem}"
-                             ItemTemplate="{StaticResource ServerRowTemplate}" Margin="0,0,0,6"/>
+                             VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                             ItemTemplate="{StaticResource ServerRowTemplate}" Margin="0,0,0,6">
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <StackPanel x:Name="hdr" Margin="22,10,22,8">
+                                            <Border Height="1" Background="{DynamicResource LineBrush}" Margin="-14,0,-14,16"/>
+                                            <TextBlock Text="{v:T home.reserve_label}" Style="{StaticResource T.Label}"/>
+                                            <TextBlock Text="{v:T home.reserve_title}" Style="{StaticResource T.H2}" FontSize="17" Margin="0,6,0,0"/>
+                                            <TextBlock Text="{v:T home.reserve_sub}" Style="{StaticResource T.Caps}" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Name}" Value="main">
+                                                <Setter TargetName="hdr" Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
+                    </ListBox>
                     <StackPanel x:Name="ListEmpty" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="Collapsed">
                         <TextBlock x:Name="ListEmptyText" Style="{StaticResource T.Muted}" TextAlignment="Center"/>
                         <Button x:Name="RetryBtn" Style="{StaticResource Btn.Secondary}" Content="{v:T common.retry}" Margin="0,12,0,0"

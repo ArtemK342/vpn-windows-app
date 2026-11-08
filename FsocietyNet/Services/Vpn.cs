@@ -54,7 +54,8 @@ public static class Vpn
 
     public static ServerResponse? BestServer()
     {
-        var auto = Servers.Where(s => s.CanConnect && s.allow_auto_connect && !s.IsBypass && !s.IsUnavailable).ToList();
+        // Reserve servers only when picked by hand (user 2026-11-09)
+        var auto = Servers.Where(s => s.CanConnect && s.allow_auto_connect && !s.IsBypass && !s.IsUnavailable && !s.IsReserve).ToList();
         var last = Servers.FirstOrDefault(s => s.id == AppSettings.Current.LastServerId && s.CanConnect);
         return auto.Where(s => Pings.TryGetValue(s.id, out var p) && p > 0).OrderBy(s => Pings[s.id]).FirstOrDefault()
                ?? last ?? auto.FirstOrDefault();

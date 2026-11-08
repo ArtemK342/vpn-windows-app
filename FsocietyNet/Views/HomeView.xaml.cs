@@ -25,6 +25,8 @@ public sealed class ServerRow : INotifyPropertyChanged
         "openvpn_cloak" => "OpenVPN + Cloak", "bypass" => Loc.Get("home.proto_bypass"), var t => t
     };
     public bool IsFavorite => AppSettings.Current.Favorites.Contains(S.id);
+    /// <summary>List group: main servers first (no header), then «Резервные серверы».</summary>
+    public string Group => S.IsReserve ? "reserve" : "main";
     public bool IsCurrent => Vpn.Server?.id == S.id && Vpn.Status != VpnStatus.Off;
     public Visibility LogsVisibility => S.logs_enabled ? Visibility.Visible : Visibility.Collapsed;
     public double RowOpacity => S.CanConnect && !S.IsUnavailable ? 1 : 0.5;
@@ -103,6 +105,9 @@ public partial class HomeView : UserControl
     {
         InitializeComponent();
         List.ItemsSource = _rows;
+        // Main / reserve blocks: the API sends main ones first, so the groups keep that order
+        System.Windows.Data.CollectionViewSource.GetDefaultView(_rows).GroupDescriptions
+            .Add(new System.Windows.Data.PropertyGroupDescription(nameof(ServerRow.Group)));
         Vpn.Changed += OnVpn;
         Zapret.ModeChanged += OnBypassMode;
         _tick.Tick += async (_, _) =>

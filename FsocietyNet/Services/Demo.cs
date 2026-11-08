@@ -16,10 +16,11 @@ public static class Demo
         new() { id = "de", name = "Германия — Эрльбах", name_en = "Germany — Erlbach", country = "Germany", is_active = true, connectable = true, server_type = "wireguard", status = "degraded", status_message = "high_load" },
         new() { id = "de-v", name = "Германия — Эрльбах", name_en = "Germany — Erlbach", country = "Germany", is_active = true, connectable = true, server_type = "vless", logs_enabled = true },
         new() { id = "de-t", name = "Германия — Эрльбах", name_en = "Germany — Erlbach", country = "Germany", is_active = true, connectable = true, server_type = "trojan", subscription_required = true },
-        new() { id = "de-h", name = "Германия — Эрльбах", name_en = "Germany — Erlbach", country = "Germany", is_active = true, connectable = true, server_type = "hysteria", status = "testing" },
-        new() { id = "de-o", name = "Германия — Эрльбах", name_en = "Germany — Erlbach", country = "Germany", is_active = true, connectable = true, server_type = "openvpn_cloak" },
         new() { id = "ru-b", name = "Обход (YouTube, Discord)", name_en = "Bypass (YouTube, Discord)", country = "Russia", is_active = true, connectable = true, server_type = "bypass" },
         new() { id = "nl", name = "Нидерланды — Амстердам", name_en = "Netherlands — Amsterdam", country = "Netherlands", is_active = false, connectable = false, status = "coming_soon" },
+        // reserve block (admin → Servers → «→ Резерв»); the API sends main ones first
+        new() { id = "de-h", name = "Германия — Эрльбах", name_en = "Germany — Erlbach", country = "Germany", is_active = true, connectable = true, server_type = "hysteria", status = "testing", server_group = "reserve" },
+        new() { id = "de-o", name = "Германия — Эрльбах", name_en = "Germany — Erlbach", country = "Germany", is_active = true, connectable = true, server_type = "openvpn_cloak", server_group = "reserve" },
     ];
 
     public static readonly Dictionary<string, int> Pings = new() { ["fi"] = 38, ["ch"] = 61, ["de"] = 54, ["de-v"] = 55, ["de-t"] = 55, ["de-h"] = 57, ["de-o"] = 55 };

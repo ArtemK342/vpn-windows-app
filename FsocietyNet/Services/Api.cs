@@ -48,7 +48,10 @@ public class ServerResponse
     public bool subscription_required { get; set; }
     public Localized? access_block { get; set; }
     public bool logs_enabled { get; set; }
+    /// <summary>«main» / «reserve» — block «Основные / Резервные серверы» (admin → Servers).</summary>
+    public string? server_group { get; set; }
 
+    [JsonIgnore] public bool IsReserve => server_group == "reserve";
     [JsonIgnore] public string DisplayName => Loc.En && !string.IsNullOrWhiteSpace(name_en) ? name_en! : name;
     [JsonIgnore] public bool UsesSingbox => server_type is "vless" or "hysteria" or "trojan";
     [JsonIgnore] public bool IsBypass => server_type == "bypass";
