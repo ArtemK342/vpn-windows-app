@@ -38,6 +38,8 @@
 
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
+    <!-- Same picture as the Android launcher icon (ic_launcher-playstore.png): app.ico and tray icons are drawn from it -->
+    <Resource Include="Assets\logo.png" />
   </ItemGroup>
 
   <!-- VPN binaries, extracted at runtime to %ProgramData%\FsocietyNet\bin (Services\Binaries.cs).

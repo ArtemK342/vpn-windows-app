@@ -148,8 +148,12 @@ public partial class RulesView : UserControl
 
     async Task LoadApps()
     {
-        var installed = await Task.Run(AppScan.Installed);
+        // Already chosen programs at once, the Start menu scan adds the rest
         var selected = S.Apps;
+        _apps.AddRange(selected.Select(a => new AppItem { Name = a.Name, Exe = a.Exe, Path = a.Path, Selected = true }));
+        AppsList.ItemsSource = _apps;
+        if (_apps.Count > 0) AppsLoading.Visibility = Visibility.Collapsed;
+        var installed = await AppScan.InstalledAsync();
         foreach (var a in selected)
             if (!installed.Any(i => i.Exe.Equals(a.Exe, StringComparison.OrdinalIgnoreCase))) installed.Add(a);
         _apps.Clear();
@@ -158,8 +162,9 @@ public partial class RulesView : UserControl
             Name = a.Name, Exe = a.Exe, Path = a.Path,
             Selected = selected.Any(x => x.Exe.Equals(a.Exe, StringComparison.OrdinalIgnoreCase))
         }).OrderByDescending(a => a.Selected).ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase));
-        AppsList.ItemsSource = _apps;
-        AppsLoading.Visibility = Visibility.Collapsed;
+        CollectionViewSource.GetDefaultView(_apps).Refresh();
+        AppsLoading.Text = Loc.Get("rules.apps_none");
+        AppsLoading.Visibility = _apps.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         RefreshAppsHeader();
         _ = Task.Run(() =>
         {

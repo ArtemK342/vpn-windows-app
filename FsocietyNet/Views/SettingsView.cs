@@ -151,33 +151,34 @@ public sealed class SettingsView : UserControl
         var p = Page(Loc.Get("account.title"));
         var me = Session.Me;
         var anon = Session.IsAnonymous;
-        var rows = new StackPanel();
-        var subRow = Info(Loc.Get("account.subscription"), Loc.Get("common.loading"));
+        var subRow = Info(Loc.Get("account.subscription"), "");
+        var subText = (TextBlock)subRow.Children[1];
         var idLabel = anon ? Loc.Get("account.code") : me?.account_type == "login" ? Loc.Get("account.login") : "Email";
         Button? copy = null;
         if (anon && me?.email != null) copy = Dialogs.Btn(Loc.Get("ext.copy"), "Btn.Secondary", (_, _) => Dialogs.Copy(me.email!), 70);
-        rows.Children.Add(Rows(
+        p.Children.Add(Card(Rows(
             Info(idLabel, me?.email ?? "—", copy),
             subRow,
-            Info(Loc.Get("account.role"), RoleName(me?.role))));
-        p.Children.Add(Card(rows));
-        _ = LoadSub((TextBlock)subRow.Children[1]);
+            Info(Loc.Get("account.role"), RoleName(me?.role)))));
+        // Cached value at once (no «Загрузка…» flash), fresh one replaces it when it arrives
+        if (Session.SubKnown) ShowSub(subText, Session.Sub); else subText.Text = Loc.Get("common.loading");
+        _ = LoadSub(subText);
 
         if (!anon)
         {
-            p.Children.Add(Label(Loc.Get("account.change_password")));
-            var form = new StackPanel { Margin = new Thickness(0, 10, 0, 0), Width = 380, HorizontalAlignment = HorizontalAlignment.Left };
-            PasswordBox Field(string label)
+            p.Children.Add(Label(Loc.Get("account.change_password"), 26));
+            var form = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
+            PasswordField Field(string label, string placeholder)
             {
-                form.Children.Add(new TextBlock { Text = label, Style = S("T.Caps"), Margin = new Thickness(0, 8, 0, 6) });
-                var b = new PasswordBox { Style = S("PasswordInput") };
+                form.Children.Add(new TextBlock { Text = label, Style = S("T.Caps"), Margin = new Thickness(0, 12, 0, 6) });
+                var b = new PasswordField { Placeholder = placeholder };
                 form.Children.Add(b);
                 return b;
             }
-            var oldP = Field(Loc.Get("account.old_password"));
-            var newP = Field(Loc.Get("account.new_password"));
-            var repP = Field(Loc.Get("account.repeat_password"));
-            var msg = new TextBlock { FontSize = 12.5, Margin = new Thickness(0, 10, 0, 0), TextWrapping = TextWrapping.Wrap };
+            var oldP = Field(Loc.Get("account.old_password"), Loc.Get("field.password_ph"));
+            var newP = Field(Loc.Get("account.new_password"), Loc.Get("field.new_password_ph"));
+            var repP = Field(Loc.Get("account.repeat_password"), Loc.Get("field.repeat_password_ph"));
+            var msg = new TextBlock { FontSize = 12.5, Margin = new Thickness(14, 0, 0, 0), TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
             var btn = Dialogs.Btn(Loc.Get("account.btn_change"), "Btn.Primary", async (s, _) =>
             {
                 void Err(string t) { msg.Text = t; msg.Foreground = Ui.Res("DangerBrush"); }
@@ -195,14 +196,17 @@ public sealed class SettingsView : UserControl
                 catch (Exception e) { Err(Errors.Text(e)); }
                 finally { ((Button)s).IsEnabled = true; }
             });
-            btn.Margin = new Thickness(0, 16, 0, 0);
-            btn.HorizontalAlignment = HorizontalAlignment.Left;
-            form.Children.Add(btn);
-            form.Children.Add(msg);
-            p.Children.Add(form);
+            var row = new Grid { Margin = new Thickness(0, 18, 0, 4) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.Children.Add(btn);
+            Grid.SetColumn(msg, 1);
+            row.Children.Add(msg);
+            form.Children.Add(row);
+            p.Children.Add(new Border { Style = S("Card"), Padding = new Thickness(20, 8, 20, 16), Margin = new Thickness(0, 10, 0, 0), Child = form });
         }
 
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 28, 0, 0) };
+        // Sign out
         var logout = Dialogs.Btn(Loc.Get("account.logout"), "Btn.Secondary", async (_, _) =>
         {
             if (!await Dialogs.Confirm(Loc.Get("account.logout_title"), Loc.Get(anon ? "account.logout_anon" : "account.logout_text"),
@@ -211,6 +215,10 @@ public sealed class SettingsView : UserControl
             Session.Clear();
             MainWindow.Instance?.ShowLogin();
         });
+        p.Children.Add(ActionRow(Loc.Get("account.logout_row"), Loc.Get("account.logout_row_desc"), logout, 26));
+
+        // Danger zone: far from «sign out», own frame
+        p.Children.Add(new TextBlock { Text = Loc.Get("account.danger"), Style = S("T.Label"), Foreground = Ui.Res("DangerBrush"), Margin = new Thickness(0, 40, 0, 0) });
         var delete = Dialogs.Btn(Loc.Get("account.delete"), "Btn.Danger", async (_, _) =>
         {
             if (!await Dialogs.Confirm(Loc.Get("account.delete_title"), Loc.Get("account.delete_text"), Loc.Get("account.delete_confirm"), danger: true)) return;
@@ -223,11 +231,49 @@ public sealed class SettingsView : UserControl
             }
             catch (Exception e) { await Dialogs.Info(Loc.Get("account.delete_title"), Errors.Text(e)); }
         });
-        delete.Margin = new Thickness(10, 0, 0, 0);
-        actions.Children.Add(logout);
-        actions.Children.Add(delete);
-        p.Children.Add(actions);
+        var danger = ActionRow(Loc.Get("account.delete"), Loc.Get("account.delete_row_desc"), delete, 10);
+        danger.SetResourceReference(Border.BorderBrushProperty, "DangerSoftBrush");
+        p.Children.Add(danger);
         return p;
+    }
+
+    /// <summary>Card with a title + description on the left and one button on the right.</summary>
+    static Border ActionRow(string title, string desc, Button button, double top)
+    {
+        var g = new Grid();
+        g.ColumnDefinitions.Add(new ColumnDefinition());
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var t = new StackPanel { Margin = new Thickness(0, 0, 16, 0), VerticalAlignment = VerticalAlignment.Center };
+        t.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold });
+        t.Children.Add(new TextBlock { Text = desc, Style = S("T.Muted"), Margin = new Thickness(0, 3, 0, 0) });
+        g.Children.Add(t);
+        button.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(button, 1);
+        g.Children.Add(button);
+        return new Border { Style = S("Card"), Padding = new Thickness(20, 16, 16, 16), Margin = new Thickness(0, top, 0, 0), Child = g };
+    }
+
+    static void ShowSub(TextBlock target, SubscriptionResponse? s)
+    {
+        if (s is { is_active: true } && s.plan is "month" or "year")
+        {
+            var plan = Loc.Get(s.plan == "year" ? "plan.year" : "plan.month");
+            var until = DateTime.TryParse(s.expires_at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var d)
+                ? d.ToLocalTime().ToString("dd.MM.yyyy") : "—";
+            target.Text = Loc.F("account.sub_active", plan, until);
+            target.Foreground = Ui.Res("AccentTextBrush");
+        }
+        else
+        {
+            target.Text = Loc.Get("account.sub_none");
+            target.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        }
+    }
+
+    static async Task LoadSub(TextBlock target)
+    {
+        try { ShowSub(target, await Api.Subscription()); }
+        catch (Exception e) { if (!Session.SubKnown) target.Text = Errors.Text(e); }
     }
 
     static string RoleName(string? role) => role switch
@@ -235,24 +281,6 @@ public sealed class SettingsView : UserControl
         "admin" or "superadmin" => Loc.Get("role.admin"), "developer" => Loc.Get("role.developer"),
         "tester" => Loc.Get("role.tester"), "support" => Loc.Get("role.support"), _ => Loc.Get("role.user")
     };
-
-    static async Task LoadSub(TextBlock target)
-    {
-        try
-        {
-            var s = await Api.Subscription();
-            if (s is { is_active: true } && s.plan is "month" or "year")
-            {
-                var plan = Loc.Get(s.plan == "year" ? "plan.year" : "plan.month");
-                var until = DateTime.TryParse(s.expires_at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var d)
-                    ? d.ToLocalTime().ToString("dd.MM.yyyy") : "—";
-                target.Text = Loc.F("account.sub_active", plan, until);
-                target.Foreground = Ui.Res("AccentTextBrush");
-            }
-            else target.Text = Loc.Get("account.sub_none");
-        }
-        catch (Exception e) { target.Text = Errors.Text(e); }
-    }
 
     // ── Connection ──
 

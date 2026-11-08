@@ -1,9 +1,11 @@
+using System.Buffers;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace FsocietyNet.Services;
 
@@ -47,15 +49,15 @@ public class ServerResponse
     public Localized? access_block { get; set; }
     public bool logs_enabled { get; set; }
 
-    public string DisplayName => Loc.En && !string.IsNullOrWhiteSpace(name_en) ? name_en! : name;
-    public bool UsesSingbox => server_type is "vless" or "hysteria" or "trojan";
-    public bool IsBypass => server_type == "bypass";
+    [JsonIgnore] public string DisplayName => Loc.En && !string.IsNullOrWhiteSpace(name_en) ? name_en! : name;
+    [JsonIgnore] public bool UsesSingbox => server_type is "vless" or "hysteria" or "trojan";
+    [JsonIgnore] public bool IsBypass => server_type == "bypass";
     /// <summary>OpenVPN + Cloak needs openvpn.exe + ck-client + a TAP/DCO driver — not in the Windows app yet.</summary>
-    public bool SupportedOnWindows => server_type is "wireguard" or "vless" or "hysteria" or "trojan" or "bypass";
-    public bool IsUnavailable => status is "down" or "coming_soon";
-    public bool HasWarning => status is "degraded" or "attacked";
-    public bool CanConnect => connectable && !subscription_required && access_block == null && SupportedOnWindows;
-    public string Host => (endpoint ?? "").Split(':')[0];
+    [JsonIgnore] public bool SupportedOnWindows => server_type is "wireguard" or "vless" or "hysteria" or "trojan" or "bypass";
+    [JsonIgnore] public bool IsUnavailable => status is "down" or "coming_soon";
+    [JsonIgnore] public bool HasWarning => status is "degraded" or "attacked";
+    [JsonIgnore] public bool CanConnect => connectable && !subscription_required && access_block == null && SupportedOnWindows;
+    [JsonIgnore] public string Host => (endpoint ?? "").Split(':')[0];
 }
 
 public class SubscriptionResponse { public bool is_active { get; set; } public string? plan { get; set; } public string? expires_at { get; set; } }
@@ -83,8 +85,8 @@ public class NewsItem
     public string? image_id { get; set; }
     public string? image_ext { get; set; }
     public string? published_at { get; set; }
-    public string Title => Loc.En && !string.IsNullOrWhiteSpace(title_en) ? title_en! : title;
-    public string Body => Loc.En && !string.IsNullOrWhiteSpace(body_en) ? body_en! : body;
+    [JsonIgnore] public string Title => Loc.En && !string.IsNullOrWhiteSpace(title_en) ? title_en! : title;
+    [JsonIgnore] public string Body => Loc.En && !string.IsNullOrWhiteSpace(body_en) ? body_en! : body;
 }
 public class NewsPage { public List<NewsItem> items { get; set; } = []; public int total { get; set; } public bool has_more { get; set; } }
 
@@ -96,6 +98,8 @@ public class TicketResponse
     public string created_at { get; set; } = "";
     public string updated_at { get; set; } = "";
     public int unread { get; set; }
+    /// <summary>When support last opened the ticket (migration 019): user messages older than it are «read».</summary>
+    public string? support_read_at { get; set; }
 }
 public class TicketMessage { public string id { get; set; } = ""; public string sender { get; set; } = ""; public string message { get; set; } = ""; public string created_at { get; set; } = ""; }
 public class TicketDetail { public TicketResponse ticket { get; set; } = new(); public List<TicketMessage> messages { get; set; } = []; }
@@ -123,7 +127,7 @@ public class ApiException : Exception
 {
     public int Status { get; }
     public string? Detail { get; }
-    public bool Network => Status == 0;
+    [JsonIgnore] public bool Network => Status == 0;
     public ApiException(int status, string? detail, Exception? inner = null) : base(detail ?? $"HTTP {status}", inner)
     { Status = status; Detail = detail; }
 
@@ -179,7 +183,8 @@ public static class Api
         DefaultRequestVersion = HttpVersion.Version11,
     };
 
-    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+    // Case-insensitive like Gson on Android; strings also accept numbers / booleans (Gson coerces them, STJ would throw)
+    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true, Converters = { new LenientString() } };
 
     static Api()
     {
@@ -317,9 +322,15 @@ public static class Api
         DemoMode ? Task.CompletedTask : Call(HttpMethod.Post, "change-password", new { old_password = oldPassword, new_password = newPassword });
     public static async Task<SubscriptionResponse?> Subscription()
     {
-        if (DemoMode) return Demo.Subscription();
-        try { return await Get<SubscriptionResponse>("subscription"); }
-        catch (ApiException e) when (e.Status == 404) { return null; }
+        SubscriptionResponse? s;
+        if (DemoMode) s = Demo.Subscription();
+        else
+        {
+            try { s = await Get<SubscriptionResponse>("subscription"); }
+            catch (ApiException e) when (e.Status == 404) { s = null; }
+        }
+        Session.SetSub(s);
+        return s;
     }
     public static Task<UsageResponse> Usage() => DemoMode ? Task.FromResult(Demo.Usage()) : Get<UsageResponse>("vpn/usage");
 
@@ -443,4 +454,20 @@ sealed class FallbackHandler : DelegatingHandler
         }
         return r;
     }
+}
+
+
+/// <summary>String fields accept JSON numbers and booleans too (the API sometimes sends ids as numbers).</summary>
+sealed class LenientString : JsonConverter<string>
+{
+    public override string? Read(ref Utf8JsonReader r, Type t, JsonSerializerOptions o) => r.TokenType switch
+    {
+        JsonTokenType.String => r.GetString(),
+        JsonTokenType.Number => System.Text.Encoding.UTF8.GetString(r.HasValueSequence ? r.ValueSequence.ToArray() : r.ValueSpan),
+        JsonTokenType.True => "true",
+        JsonTokenType.False => "false",
+        JsonTokenType.Null => null,
+        _ => throw new JsonException($"string expected, got {r.TokenType}")
+    };
+    public override void Write(Utf8JsonWriter w, string v, JsonSerializerOptions o) => w.WriteStringValue(v);
 }

@@ -17,8 +17,7 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal">
-                    <v:Brand Size="34"/>
-                    <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold" VerticalAlignment="Center">
                         <Run Text="[" Foreground="{DynamicResource MutedBrush}"/><Run Text="f" Foreground="{DynamicResource AccentTextBrush}"/><Run Text="]society"/>
                     </TextBlock>
                 </StackPanel>
@@ -65,13 +64,13 @@
                         <TextBlock Text="{v:T login.sub_email}" Style="{StaticResource T.Label}"/>
                         <TextBlock Text="{v:T login.title}" Style="{StaticResource T.H1}" Margin="0,8,0,24"/>
                         <TextBlock Text="{v:T login.email}" Style="{StaticResource T.Caps}" Margin="0,0,0,6"/>
-                        <TextBox x:Name="Email" Style="{StaticResource Input}" Tag="you@example.com"/>
+                        <TextBox x:Name="Email" Style="{StaticResource Input}" Tag="you@example.com" v:Ui.Icon="{StaticResource I.Mail}" Padding="10,0"/>
                         <Grid Margin="0,14,0,6">
                             <TextBlock Text="{v:T login.password}" Style="{StaticResource T.Caps}"/>
                             <Button Style="{StaticResource Btn.Link}" HorizontalAlignment="Right" FontSize="11.5"
                                     Content="{v:T login.forgot}" Click="Forgot_Click"/>
                         </Grid>
-                        <PasswordBox x:Name="Password" Style="{StaticResource PasswordInput}" KeyDown="Password_KeyDown"/>
+                        <v:PasswordField x:Name="Password" Placeholder="{v:T field.password_ph}" KeyDown="Password_KeyDown"/>
                         <Button x:Name="LoginBtn" Style="{StaticResource Btn.Primary}" Height="44" Margin="0,22,0,0"
                                 Content="{v:T login.btn}" Click="Login_Click"/>
                         <Button Style="{StaticResource Btn.Secondary}" Height="42" Margin="0,10,0,0"
@@ -87,7 +86,7 @@
                         <TextBlock Text="{v:T login.sub_anon}" Style="{StaticResource T.Label}"/>
                         <TextBlock Text="{v:T login.title}" Style="{StaticResource T.H1}" Margin="0,8,0,24"/>
                         <TextBlock Text="{v:T login.code}" Style="{StaticResource T.Caps}" Margin="0,0,0,6"/>
-                        <TextBox x:Name="Code" Style="{StaticResource Input}" Tag="0000-0000-0000-0000" FontFamily="{StaticResource MonoFont}"
+                        <TextBox x:Name="Code" Style="{StaticResource Input}" Tag="0000-0000-0000-0000" FontFamily="{StaticResource MonoFont}" v:Ui.Icon="{StaticResource I.Key}" Padding="10,0"
                                  FontSize="16" MaxLength="19" TextChanged="Code_TextChanged" KeyDown="Code_KeyDown"/>
                         <TextBlock Text="{v:T login.code_hint}" Style="{StaticResource T.Note}" Margin="0,8,0,0"/>
                         <Button x:Name="CodeBtn" Style="{StaticResource Btn.Primary}" Height="44" Margin="0,22,0,0"
@@ -103,11 +102,11 @@
                         <TextBlock Text="{v:T register.sub}" Style="{StaticResource T.Label}"/>
                         <TextBlock Text="{v:T register.title}" Style="{StaticResource T.H1}" Margin="0,8,0,24"/>
                         <TextBlock Text="{v:T login.email}" Style="{StaticResource T.Caps}" Margin="0,0,0,6"/>
-                        <TextBox x:Name="RegEmail" Style="{StaticResource Input}" Tag="you@example.com"/>
+                        <TextBox x:Name="RegEmail" Style="{StaticResource Input}" Tag="you@example.com" v:Ui.Icon="{StaticResource I.Mail}" Padding="10,0"/>
                         <TextBlock Text="{v:T login.password}" Style="{StaticResource T.Caps}" Margin="0,14,0,6"/>
-                        <PasswordBox x:Name="RegPassword" Style="{StaticResource PasswordInput}"/>
+                        <v:PasswordField x:Name="RegPassword" Placeholder="{v:T field.new_password_ph}"/>
                         <TextBlock Text="{v:T register.repeat}" Style="{StaticResource T.Caps}" Margin="0,14,0,6"/>
-                        <PasswordBox x:Name="RegPassword2" Style="{StaticResource PasswordInput}"/>
+                        <v:PasswordField x:Name="RegPassword2" Placeholder="{v:T field.repeat_password_ph}"/>
                         <Grid Margin="0,16,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>

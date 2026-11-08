@@ -380,18 +380,29 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
+                    <!-- TextBox applies its own Padding to PART_ContentHost: no Margin there (it doubled the
+                         indent, the caret stood ~12 px right of the placeholder). Optional leading icon: v:Ui.Icon. -->
                     <Border x:Name="bd" CornerRadius="10" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                         <Grid>
-                            <TextBlock x:Name="ph" Text="{TemplateBinding Tag}" Foreground="{DynamicResource FaintBrush}"
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <v:Icon x:Name="ic" Data="{Binding (v:Ui.Icon), RelativeSource={RelativeSource TemplatedParent}}"
+                                    Size="17" Margin="14,0,0,0" VerticalAlignment="Center" Brush="{DynamicResource FaintBrush}"/>
+                            <TextBlock x:Name="ph" Grid.Column="1" Text="{TemplateBinding Tag}" Foreground="{DynamicResource FaintBrush}"
                                        Margin="{TemplateBinding Padding}" Padding="2,0,0,0" IsHitTestVisible="False"
                                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Visibility="Collapsed"
                                        FontSize="{TemplateBinding FontSize}" FontFamily="{TemplateBinding FontFamily}"/>
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                            <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="v:Ui.Icon" Value="{x:Null}">
+                            <Setter TargetName="ic" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
                         <Trigger Property="Text" Value="">
                             <Setter TargetName="ph" Property="Visibility" Value="Visible"/>
                         </Trigger>
@@ -400,6 +411,7 @@
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="ic" Property="Brush" Value="{DynamicResource AccentTextBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
@@ -436,7 +448,7 @@
                 <ControlTemplate TargetType="PasswordBox">
                     <Border x:Name="bd" CornerRadius="10" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -446,6 +458,44 @@
                             <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Inner boxes of Views/PasswordField (the field draws the frame, icon and placeholder itself) -->
+    <Style x:Key="BarePassword" TargetType="PasswordBox">
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border Background="Transparent">
+                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="BareInput" TargetType="TextBox">
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border Background="Transparent">
+                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

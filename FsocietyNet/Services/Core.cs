@@ -93,10 +93,10 @@ public class AppSettings
     // «Режим РФ»: the system proxy settings before we set ours (restored on disconnect and after a crash)
     public string? ProxyBackup { get; set; }
 
-    public List<string> Sites => SitesMode == "include" ? SitesInclude : SitesExclude;
-    public List<TunnelApp> Apps => AppsMode == "include" ? AppsInclude : AppsExclude;
-    public bool SitesActive => SitesEnabled && Sites.Count > 0;
-    public bool AppsActive => AppsEnabled && Apps.Count > 0;
+    [System.Text.Json.Serialization.JsonIgnore] public List<string> Sites => SitesMode == "include" ? SitesInclude : SitesExclude;
+    [System.Text.Json.Serialization.JsonIgnore] public List<TunnelApp> Apps => AppsMode == "include" ? AppsInclude : AppsExclude;
+    [System.Text.Json.Serialization.JsonIgnore] public bool SitesActive => SitesEnabled && Sites.Count > 0;
+    [System.Text.Json.Serialization.JsonIgnore] public bool AppsActive => AppsEnabled && Apps.Count > 0;
     public string RulesFingerprint() =>
         $"{SitesActive}|{SitesMode}|{string.Join(",", Sites)}|{AppsActive}|{AppsMode}|{string.Join(",", Apps.Select(a => a.Exe))}";
 
@@ -236,11 +236,14 @@ public static class Log
 public static class Session
 {
     static readonly string FilePath = Path.Combine(Paths.UserDir, "session.bin");
-    record Stored(string access, string refresh, UserResponse? me);
+    record Stored(string access, string refresh, UserResponse? me, SubscriptionResponse? sub = null, bool subKnown = false);
 
     public static string Access { get; private set; } = "";
     public static string Refresh { get; private set; } = "";
     public static UserResponse? Me { get; private set; }
+    /// <summary>Last known subscription (null = none); Settings shows it at once and refreshes it.</summary>
+    public static SubscriptionResponse? Sub { get; private set; }
+    public static bool SubKnown { get; private set; }
     public static bool SignedIn => Access.Length > 0;
 
     /// <summary>Refresh failed: the UI goes back to the login screen.</summary>
@@ -254,7 +257,7 @@ public static class Session
             var json = Encoding.UTF8.GetString(Dpapi.Unprotect(File.ReadAllBytes(FilePath)));
             var s = JsonSerializer.Deserialize<Stored>(json);
             if (s == null) return;
-            Access = s.access ?? ""; Refresh = s.refresh ?? ""; Me = s.me;
+            Access = s.access ?? ""; Refresh = s.refresh ?? ""; Me = s.me; Sub = s.sub; SubKnown = s.subKnown;
         }
         catch (Exception e) { Log.E("session load", e); }
         // Migration: old versions kept tokens as plain text files
@@ -270,6 +273,7 @@ public static class Session
     }
 
     public static void SetMe(UserResponse me) { Me = me; Persist(); }
+    public static void SetSub(SubscriptionResponse? sub) { Sub = sub; SubKnown = true; Persist(); }
 
     static bool _demo;
 
@@ -287,7 +291,7 @@ public static class Session
         try
         {
             Paths.EnsureUserDir();
-            var json = JsonSerializer.Serialize(new Stored(Access, Refresh, Me));
+            var json = JsonSerializer.Serialize(new Stored(Access, Refresh, Me, Sub, SubKnown));
             File.WriteAllBytes(FilePath, Dpapi.Protect(Encoding.UTF8.GetBytes(json)));
         }
         catch (Exception e) { Log.E("session save", e); }
@@ -295,7 +299,7 @@ public static class Session
 
     public static void Clear()
     {
-        Access = ""; Refresh = ""; Me = null;
+        Access = ""; Refresh = ""; Me = null; Sub = null; SubKnown = false;
         try { File.Delete(FilePath); } catch { }
     }
 

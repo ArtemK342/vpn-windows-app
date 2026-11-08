@@ -91,6 +91,7 @@ public partial class MainWindow : Window
     {
         try { await Api.Me(); } catch { }
         UpdateAccount();
+        try { await Api.Subscription(); } catch { }   // cached for Settings → Account
     }
 
     public void UpdateAccount()

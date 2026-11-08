@@ -25,6 +25,14 @@ public static class Renderer
         w.Show();
         await Settle();
         Save(w, dir, "01-login");
+        // Same field with text typed in: its first letter must start where the placeholder starts (caret position)
+        if (w.Content is FrameworkElement r0 && FindChild<System.Windows.Controls.TextBox>(r0, "Email") is { } email)
+        {
+            email.Text = "you@example.com";
+            await Settle(200);
+            Save(w, dir, "01b-login-typed");
+            email.Text = "";
+        }
 
         Session.SetDemo(true);
         w.ShowApp();
@@ -46,7 +54,14 @@ public static class Renderer
         {
             w.Go(page);
             await Settle(page == "support" ? 900 : 500);
+            if (page == "support" && w.Page.Content is SupportView sv) { await sv.OpenFirstForPreview(); await Settle(300); }
             Save(w, dir, name);
+            if (page == "settings" && FindScroll(w.Page) is { } sc)
+            {
+                sc.ScrollToEnd();
+                await Settle(200);
+                Save(w, dir, name + "-bottom");
+            }
         }
 
         w.Go("home");
@@ -81,6 +96,28 @@ public static class Renderer
 #endif
         File.WriteAllText(Path.Combine(dir, "x25519-selftest.txt"), X25519.SelfTest() ? "ok" : "FAIL");
         w.Close();
+    }
+
+    static System.Windows.Controls.ScrollViewer? FindScroll(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var c = VisualTreeHelper.GetChild(root, i);
+            if (c is System.Windows.Controls.ScrollViewer sv && sv.ScrollableHeight > 0) return sv;
+            if (FindScroll(c) is { } f) return f;
+        }
+        return null;
+    }
+
+    static T? FindChild<T>(DependencyObject root, string name) where T : FrameworkElement
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var c = VisualTreeHelper.GetChild(root, i);
+            if (c is T t && t.Name == name) return t;
+            if (FindChild<T>(c, name) is { } found) return found;
+        }
+        return null;
     }
 
     static async Task Settle(int ms = 500)

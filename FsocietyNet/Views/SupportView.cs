@@ -18,6 +18,9 @@ public sealed class SupportView : UserControl
     readonly Grid _chat;
     readonly TextBlock _chatEmpty;
     TicketResponse? _current;
+    string? _supportReadAt;
+    int _shownCount;
+    readonly System.Windows.Threading.DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(15) };
 
     static Style S(string k) => (Style)Application.Current.FindResource(k);
 
@@ -117,6 +120,10 @@ public sealed class SupportView : UserControl
 
         Content = root;
         _ = LoadList();
+        // Open ticket: new replies and «read by support» marks arrive without reopening it
+        _poll.Tick += async (_, _) => await Poll();
+        Loaded += (_, _) => _poll.Start();
+        Unloaded += (_, _) => _poll.Stop();
     }
 
     static string When(string iso)
@@ -125,6 +132,9 @@ public sealed class SupportView : UserControl
         d = d.ToLocalTime();
         return d.Date == DateTime.Today ? d.ToString("HH:mm") : d.ToString(Loc.En ? "MMM d, HH:mm" : "d MMM, HH:mm", new CultureInfo(Loc.En ? "en-US" : "ru-RU"));
     }
+
+    /// <summary>`-render`: show the first ticket's conversation.</summary>
+    internal async Task OpenFirstForPreview() { var l = await Api.Tickets(); if (l.Count > 0) await Open(l[0]); }
 
     async Task LoadList(string? select = null)
     {
@@ -188,13 +198,23 @@ public sealed class SupportView : UserControl
             var d = await Api.Ticket(t.id);
             if (_current?.id != t.id) return;
             SetStatus(d.ticket.status);
+            _supportReadAt = d.ticket.support_read_at;
+            _shownCount = d.messages.Count;
             if (d.messages.Count == 0)
                 _messages.Children.Add(new TextBlock { Text = Loc.Get("tickets.no_messages"), Style = S("T.Muted"), Margin = new Thickness(4, 8, 0, 0) });
             foreach (var m in d.messages) _messages.Children.Add(Bubble(m));
             _msgScroll.ScrollToEnd();
             if (t.unread > 0) { t.unread = 0; _ = MainWindow.Instance?.RefreshUnread(); RefreshRow(t); }
         }
-        catch (Exception e) { _messages.Children.Add(new TextBlock { Text = Errors.Text(e), Style = S("T.Muted") }); }
+        catch (Exception e)
+        {
+            Log.E("ticket open", e);
+#if PREVIEW
+            _messages.Children.Add(new TextBlock { Text = e.ToString(), Style = S("T.Note") });
+#else
+            _messages.Children.Add(new TextBlock { Text = Errors.Text(e), Style = S("T.Muted") });
+#endif
+        }
     }
 
     void RefreshRow(TicketResponse t)
@@ -202,8 +222,11 @@ public sealed class SupportView : UserControl
         for (int i = 0; i < _tickets.Children.Count; i++)
             if (((Border)_tickets.Children[i]).Tag is TicketResponse x && x.id == t.id)
             {
-                _tickets.Children[i] = Row(t);
-                ((Border)_tickets.Children[i]).Background = Ui.Res("AccentSoftBrush");
+                var row = (Border)Row(t);
+                row.Background = Ui.Res("AccentSoftBrush");
+                _tickets.Children.RemoveAt(i);
+                _tickets.Children.Insert(i, row);
+                break;
             }
     }
 
@@ -217,7 +240,32 @@ public sealed class SupportView : UserControl
         _input.Tag = Loc.Get(open ? "tickets.message_hint" : "tickets.closed_hint");
     }
 
-    FrameworkElement Bubble(TicketMessage m)
+    async Task Poll()
+    {
+        if (_current is not { } t) return;
+        try
+        {
+            var d = await Api.Ticket(t.id);
+            if (_current?.id != t.id) return;
+            if (d.messages.Count == _shownCount && d.ticket.support_read_at == _supportReadAt) return;
+            var atEnd = _msgScroll.VerticalOffset >= _msgScroll.ScrollableHeight - 4;
+            _supportReadAt = d.ticket.support_read_at;
+            _shownCount = d.messages.Count;
+            SetStatus(d.ticket.status);
+            _messages.Children.Clear();
+            foreach (var m in d.messages) _messages.Children.Add(Bubble(m));
+            if (atEnd) _msgScroll.ScrollToEnd();
+        }
+        catch { }
+    }
+
+    static DateTime? Parse(string? v) =>
+        DateTime.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    /// <summary>Support opened the ticket after this message was written (tickets.support_read_at, migration 019).</summary>
+    bool ReadBySupport(TicketMessage m) => Parse(m.created_at) is { } c && Parse(_supportReadAt) is { } r && c <= r;
+
+    FrameworkElement Bubble(TicketMessage m, bool pending = false)
     {
         var mine = m.sender == "user";
         var b = new Border
@@ -232,7 +280,21 @@ public sealed class SupportView : UserControl
         var text = NewsView.Body(m.message);
         text.FontSize = 13;
         p.Children.Add(text);
-        p.Children.Add(new TextBlock { Text = When(m.created_at), Style = S("T.Caps"), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) });
+        var meta = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) };
+        meta.Children.Add(new TextBlock { Text = pending ? "" : When(m.created_at), Style = S("T.Caps"), VerticalAlignment = VerticalAlignment.Center });
+        if (mine)
+        {
+            // clock = sending · ✓ = delivered (saved on the server) · ✓✓ = read by support
+            var read = !pending && ReadBySupport(m);
+            meta.Children.Add(new Icon
+            {
+                Data = Ui.Geo(pending ? "I.Clock" : read ? "I.Check2" : "I.Check"), Size = 15, Stroke = 2,
+                Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                Brush = Ui.Res(read ? "AccentTextBrush" : "FaintBrush"),
+                ToolTip = Loc.Get(pending ? "tickets.sending" : read ? "tickets.read" : "tickets.delivered"),
+            });
+        }
+        p.Children.Add(meta);
         b.Child = p;
         return b;
     }
@@ -242,15 +304,24 @@ public sealed class SupportView : UserControl
         var text = _input.Text.Trim();
         if (text.Length == 0 || _current == null) return;
         _send.IsEnabled = false;
+        if (_messages.Children.Count == 1 && _messages.Children[0] is TextBlock) _messages.Children.Clear();
+        var pending = Bubble(new TicketMessage { sender = "user", message = text }, pending: true);
+        _messages.Children.Add(pending);
+        _msgScroll.ScrollToEnd();
+        _input.Text = "";
         try
         {
             var m = await Api.SendMessage(_current.id, text);
-            _input.Text = "";
-            if (_messages.Children.Count == 1 && _messages.Children[0] is TextBlock) _messages.Children.Clear();
-            _messages.Children.Add(Bubble(m));
-            _msgScroll.ScrollToEnd();
+            var i = _messages.Children.IndexOf(pending);
+            if (i >= 0) { _messages.Children.RemoveAt(i); _messages.Children.Insert(i, Bubble(m)); }
+            _shownCount++;
         }
-        catch (Exception e) { Dialogs.Toast(Errors.Text(e)); }
+        catch (Exception e)
+        {
+            _messages.Children.Remove(pending);
+            _input.Text = text;   // not lost: can be sent again
+            Dialogs.Toast(Errors.Text(e));
+        }
         finally { _send.IsEnabled = _current?.status != "closed"; }
     }
 

@@ -52,7 +52,11 @@ public static class Demo
 
     public static TicketDetail Ticket(string id) => new()
     {
-        ticket = Tickets().FirstOrDefault(t => t.id == id) ?? Tickets()[0],
+        ticket = (Tickets().FirstOrDefault(t => t.id == id) ?? Tickets()[0]) is var t0 ? new TicketResponse
+        {
+            id = t0.id, subject = t0.subject, status = t0.status, created_at = t0.created_at, updated_at = t0.updated_at,
+            support_read_at = "2026-11-08T09:10:00"
+        } : null!,
         messages =
         [
             new() { sender = "user", message = "Добрый день! Hysteria2 подключается, но через минуту пропадает интернет.", created_at = "2026-11-07T10:00:00" },

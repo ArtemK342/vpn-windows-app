@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Documents;
@@ -178,69 +178,75 @@ public sealed class Flag : FrameworkElement
 public enum BrandState { Normal, Connected, Off, Busy, Blocked }
 
 /// <summary>
-/// The «f» mark: dark rounded square with a lime «f». One vector source for the window icon, app.ico
-/// (all sizes 16…256) and the tray icons, so every size is drawn crisp instead of scaling one bitmap.
+/// App / tray icon: the Android launcher picture (Assets/logo.png, 512 px) cut to its circle. Every icon frame
+/// (16…256) is scaled straight from the 512 px original with a high-quality bicubic filter at its exact size —
+/// Windows does not shrink one bitmap. Tray states add a coloured dot.
 /// </summary>
 public static class BrandMark
 {
-    static Geometry? _glyph;
+    static Drawing.Bitmap? _src;
 
-    static Geometry Glyph()
+    static Drawing.Bitmap Source()
     {
-        if (_glyph != null) return _glyph;
-        var ft = new FormattedText("f", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            new Typeface(new FontFamily("Bahnschrift"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
-            100, Brushes.White, 1.0);
-        var g = ft.BuildGeometry(new Point(0, 0));
-        g.Freeze();
-        return _glyph = g;
+        if (_src != null) return _src;
+        using var s = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/logo.png")).Stream;
+        using var tmp = new Drawing.Bitmap(s);
+        return _src = new Drawing.Bitmap(tmp);   // copy: the stream is closed
     }
 
-    public static void Draw(DrawingContext dc, double size, BrandState state)
+    /// <summary>Logo of px×px, round, premultiplied BGRA.</summary>
+    static BitmapSource Logo(int px)
     {
-        var lime = Color.FromRgb(0xC8, 0xF1, 0x35);
-        var dark = Color.FromRgb(0x0E, 0x0E, 0x10);
-        Color bg = state == BrandState.Connected ? lime : dark;
-        Color fg = state switch
+        using var scaled = new Drawing.Bitmap(px, px, Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var g = Drawing.Graphics.FromImage(scaled))
         {
-            BrandState.Connected => dark,
-            BrandState.Off => Color.FromRgb(0x9A, 0x9A, 0xA2),
-            BrandState.Blocked => Color.FromRgb(0xFF, 0x5A, 0x5A),
-            _ => lime
-        };
-        var r = size * 0.24;
-        var rect = new Rect(0, 0, size, size);
-        dc.DrawRoundedRectangle(new SolidColorBrush(bg), state == BrandState.Connected ? null :
-            new Pen(new SolidColorBrush(Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF)), Math.Max(1, size / 32)),
-            new Rect(rect.X + size / 64, rect.Y + size / 64, size - size / 32, size - size / 32), r, r);
-
-        var glyph = Glyph();
-        var b = glyph.Bounds;
-        var target = size * (size <= 20 ? 0.74 : 0.66);   // a bigger glyph at tray sizes reads better
-        var k = target / b.Height;
-        var tg = new TransformGroup();
-        tg.Children.Add(new TranslateTransform(-b.X - b.Width / 2, -b.Y - b.Height / 2));
-        tg.Children.Add(new ScaleTransform(k, k));
-        tg.Children.Add(new TranslateTransform(size / 2 + size * 0.02, size / 2));
-        dc.PushTransform(tg);
-        // Outline in the same colour thickens the glyph a little: reads better at 16–24 px
-        var fgBrush = new SolidColorBrush(fg);
-        dc.DrawGeometry(fgBrush, new Pen(fgBrush, 3.2 / k * size / 100) { LineJoin = PenLineJoin.Round }, glyph);
-        dc.Pop();
-
-        if (state == BrandState.Busy)
-        {
-            var d = size * 0.30;
-            dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xFF, 0xB5, 0x47)), new Pen(new SolidColorBrush(dark), size / 16),
-                new Point(size - d / 2 - size * 0.04, size - d / 2 - size * 0.04), d / 2, d / 2);
+            g.InterpolationMode = Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+            g.CompositingQuality = Drawing.Drawing2D.CompositingQuality.HighQuality;
+            using var attrs = new Drawing.Imaging.ImageAttributes();
+            attrs.SetWrapMode(Drawing.Drawing2D.WrapMode.TileFlipXY);   // no dark fringe at the edges
+            var src = Source();
+            g.DrawImage(src, new Drawing.Rectangle(0, 0, px, px), 0, 0, src.Width, src.Height, Drawing.GraphicsUnit.Pixel, attrs);
         }
+        using var round = new Drawing.Bitmap(px, px, Drawing.Imaging.PixelFormat.Format32bppPArgb);
+        using (var g = Drawing.Graphics.FromImage(round))
+        {
+            g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+            using var brush = new Drawing.TextureBrush(scaled);
+            g.FillEllipse(brush, 0, 0, px, px);
+        }
+        var data = round.LockBits(new Drawing.Rectangle(0, 0, px, px), Drawing.Imaging.ImageLockMode.ReadOnly,
+            Drawing.Imaging.PixelFormat.Format32bppPArgb);
+        try
+        {
+            var bs = BitmapSource.Create(px, px, 96, 96, PixelFormats.Pbgra32, null, data.Scan0, data.Stride * px, data.Stride);
+            bs.Freeze();
+            return bs;
+        }
+        finally { round.UnlockBits(data); }
     }
 
     public static BitmapSource Render(int px, BrandState state)
     {
         var dv = new DrawingVisual();
-        RenderOptions.SetEdgeMode(dv, EdgeMode.Unspecified);
-        using (var dc = dv.RenderOpen()) Draw(dc, px, state);
+        using (var dc = dv.RenderOpen())
+        {
+            dc.DrawImage(Logo(px), new Rect(0, 0, px, px));
+            Color? dot = state switch
+            {
+                BrandState.Connected => Color.FromRgb(0xC8, 0xF1, 0x35),
+                BrandState.Busy => Color.FromRgb(0xFF, 0xB5, 0x47),
+                BrandState.Blocked => Color.FromRgb(0xFF, 0x5A, 0x5A),
+                _ => null
+            };
+            if (dot is Color d)
+            {
+                var r = Math.Max(3, px * 0.19);
+                var p = new Point(px - r - px * 0.02, px - r - px * 0.02);
+                dc.DrawEllipse(new SolidColorBrush(d), new Pen(new SolidColorBrush(Color.FromRgb(0x04, 0x05, 0x07)), Math.Max(1, px / 14.0)), p, r, r);
+            }
+        }
         var bmp = new RenderTargetBitmap(px, px, 96, 96, PixelFormats.Pbgra32);
         bmp.Render(dv);
         bmp.Freeze();
@@ -272,14 +278,4 @@ public static class BrandMark
         }
         foreach (var (_, data) in pngs) w.Write(data);
     }
-}
-
-/// <summary>Brand mark as a UI element (sidebar, login).</summary>
-public sealed class Brand : FrameworkElement
-{
-    public static readonly DependencyProperty SizeProperty = DependencyProperty.Register(nameof(Size), typeof(double),
-        typeof(Brand), new FrameworkPropertyMetadata(28.0, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
-    public double Size { get => (double)GetValue(SizeProperty); set => SetValue(SizeProperty, value); }
-    protected override System.Windows.Size MeasureOverride(System.Windows.Size _) => new(Size, Size);
-    protected override void OnRender(DrawingContext dc) => BrandMark.Draw(dc, Size, BrandState.Normal);
 }

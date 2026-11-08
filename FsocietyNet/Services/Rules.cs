@@ -264,7 +264,27 @@ public static class Cidr
 /// <summary>Programs for the apps tab: Start menu shortcuts (and «choose .exe…»).</summary>
 public static class AppScan
 {
-    public static List<TunnelApp> Installed()
+    static List<TunnelApp>? _cache;
+
+    /// <summary>
+    /// Scan on its own STA thread (WScript.Shell is an apartment COM object: from a pool thread every call was
+    /// marshalled) and once per run. Never throws: a failure gives an empty list instead of an endless «Loading».
+    /// </summary>
+    public static Task<List<TunnelApp>> InstalledAsync()
+    {
+        if (_cache != null) return Task.FromResult(_cache.ToList());
+        var tcs = new TaskCompletionSource<List<TunnelApp>>();
+        var t = new Thread(() =>
+        {
+            try { _cache = Installed(); tcs.SetResult(_cache.ToList()); }
+            catch (Exception e) { Log.E("app scan", e); tcs.SetResult([]); }
+        }) { IsBackground = true };
+        t.SetApartmentState(ApartmentState.STA);
+        t.Start();
+        return tcs.Task;
+    }
+
+    static List<TunnelApp> Installed()
     {
         var roots = new[]
         {
@@ -274,12 +294,17 @@ public static class AppScan
         var found = new Dictionary<string, TunnelApp>(StringComparer.OrdinalIgnoreCase);
         dynamic? shell = null;
         try { shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!); } catch { }
+        // IgnoreInaccessible: a folder without access used to throw in the middle of the enumeration — the scan
+        // died and the Rules screen stayed on «Loading…»
+        var opts = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, MaxRecursionDepth = 6 };
+        var deadline = Environment.TickCount64 + 20_000;
         foreach (var root in roots.Where(Directory.Exists))
         {
-            IEnumerable<string> links;
-            try { links = Directory.EnumerateFiles(root, "*.lnk", SearchOption.AllDirectories); } catch { continue; }
+            List<string> links;
+            try { links = Directory.EnumerateFiles(root, "*.lnk", opts).ToList(); } catch { continue; }
             foreach (var lnk in links)
             {
+                if (Environment.TickCount64 > deadline) break;
                 try
                 {
                     string target = shell?.CreateShortcut(lnk).TargetPath ?? "";
