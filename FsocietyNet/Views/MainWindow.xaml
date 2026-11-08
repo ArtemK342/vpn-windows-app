@@ -1,0 +1,141 @@
+<Window x:Class="FsocietyNet.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:FsocietyNet.Views"
+        Title="FsocietyNet" Width="1120" Height="720" MinWidth="940" MinHeight="620"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
+        Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
+        FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType"
+        Icon="pack://application:,,,/Assets/app.ico">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="44" ResizeBorderThickness="6" GlassFrameThickness="0,0,0,1"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Grid x:Name="Root">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SideCol" Width="236"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ═════════ Sidebar ═════════ -->
+        <Border x:Name="Sidebar" Grid.Column="0" Background="{DynamicResource SidebarBrush}"
+                BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="76"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="22,6,0,0">
+                    <v:Brand Size="30"/>
+                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" FontWeight="Bold">
+                            <Run Text="[" Foreground="{DynamicResource MutedBrush}"/><Run Text="f" Foreground="{DynamicResource AccentTextBrush}"/><Run Text="]society" Foreground="{DynamicResource TextBrush}"/>
+                        </TextBlock>
+                        <TextBlock x:Name="SideSub" Text="VPN · Windows" Style="{StaticResource T.Caps}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                    <RadioButton x:Name="NavHome" Style="{StaticResource NavItem}" v:Ui.Icon="{StaticResource I.Home}"
+                                 Content="{v:T nav.home}" Checked="Nav_Checked" Tag="{x:Null}"/>
+                    <RadioButton x:Name="NavRules" Style="{StaticResource NavItem}" v:Ui.Icon="{StaticResource I.Rules}"
+                                 Content="{v:T nav.rules}" Checked="Nav_Checked" Tag="{x:Null}"/>
+                    <RadioButton x:Name="NavNews" Style="{StaticResource NavItem}" v:Ui.Icon="{StaticResource I.News}"
+                                 Content="{v:T nav.news}" Checked="Nav_Checked" Tag="{x:Null}"/>
+                    <RadioButton x:Name="NavSupport" Style="{StaticResource NavItem}" v:Ui.Icon="{StaticResource I.Support}"
+                                 Content="{v:T nav.support}" Checked="Nav_Checked" Tag="{x:Null}"/>
+                    <RadioButton x:Name="NavSettings" Style="{StaticResource NavItem}" v:Ui.Icon="{StaticResource I.Settings}"
+                                 Content="{v:T nav.settings}" Checked="Nav_Checked" Tag="{x:Null}"/>
+                </StackPanel>
+
+                <!-- Connection pill + account -->
+                <StackPanel Grid.Row="2" Margin="16,0,16,18">
+                    <Border x:Name="StatePill" CornerRadius="12" Padding="12,10" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Cursor="Hand"
+                            MouseLeftButtonUp="StatePill_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Ellipse x:Name="StateDot" Width="9" Height="9" Fill="{DynamicResource FaintBrush}" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock x:Name="StateText" Text="{v:T home.state_off}" FontSize="12.5" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="StateSub" Text="" Style="{StaticResource T.Caps}" TextTrimming="CharacterEllipsis"
+                                           Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Grid Margin="4,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <v:Icon Data="{StaticResource I.User}" Size="15" Brush="{DynamicResource FaintBrush}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="AccountText" Grid.Column="1" Margin="8,0,0,0" Style="{StaticResource T.Caps}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═════════ Content ═════════ -->
+        <Grid Grid.Column="1">
+            <ContentControl x:Name="Page" Focusable="False"/>
+
+            <!-- Update banner -->
+            <Border x:Name="UpdateBanner" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,20,20"
+                    Visibility="Collapsed" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AccentLineBrush}"
+                    BorderThickness="1" CornerRadius="12" Padding="14,10">
+                <StackPanel Orientation="Horizontal">
+                    <v:Icon Data="{StaticResource I.Download}" Size="17" Brush="{DynamicResource AccentTextBrush}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="UpdateText" Margin="10,0,14,0" VerticalAlignment="Center" FontSize="12.5"/>
+                    <Button Style="{StaticResource Btn.Primary}" Height="30" Padding="12,0" FontSize="12"
+                            Content="{v:T update.open}" Click="UpdateOpen_Click"/>
+                    <Button Style="{StaticResource Btn.Icon}" Width="30" Height="30" Margin="4,0,0,0" Click="UpdateHide_Click">
+                        <v:Icon Data="{StaticResource I.Close}" Size="14"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Window buttons (over everything, in the caption band) -->
+        <StackPanel Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+            <Button Style="{StaticResource Btn.Chrome}" Click="Min_Click" ToolTip="{v:T win.min}">
+                <v:Icon Data="{StaticResource I.Min}" Size="15" Stroke="1.5"/>
+            </Button>
+            <Button Style="{StaticResource Btn.Chrome}" Click="Max_Click">
+                <v:Icon x:Name="MaxIcon" Data="{StaticResource I.Max}" Size="13" Stroke="1.6"/>
+            </Button>
+            <Button Style="{StaticResource Btn.ChromeClose}" Click="Close_Click" ToolTip="{v:T win.close}">
+                <v:Icon Data="{StaticResource I.Close}" Size="15" Stroke="1.5"/>
+            </Button>
+        </StackPanel>
+
+        <!-- Dialog layer -->
+        <Grid x:Name="Overlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="{DynamicResource OverlayBrush}"
+              MouseLeftButtonDown="Overlay_MouseDown">
+            <Border x:Name="DialogCard" Style="{StaticResource Card}" CornerRadius="16" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" MaxWidth="560" MinWidth="380" Padding="26,24" Margin="40">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="40" ShadowDepth="10" Opacity="0.35" Color="{DynamicResource ShadowColor}"/>
+                </Border.Effect>
+                <ContentControl x:Name="DialogContent" Focusable="False"/>
+            </Border>
+        </Grid>
+
+        <!-- Toasts -->
+        <Border x:Name="Toast" Grid.ColumnSpan="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,28"
+                Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource Line2Brush}" BorderThickness="1"
+                CornerRadius="10" Padding="16,10" Visibility="Collapsed" IsHitTestVisible="False">
+            <TextBlock x:Name="ToastText" FontSize="12.5"/>
+        </Border>
+    </Grid>
+</Window>

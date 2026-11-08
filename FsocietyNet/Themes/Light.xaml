@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Light theme: same keys as Dark.xaml. Lime is a fill colour here; text accents use a darker olive,
+         lime text on white would be unreadable. -->
+    <Color x:Key="AccentColor">#C8F135</Color>
+    <Color x:Key="DangerColor">#D93636</Color>
+    <Color x:Key="ShadowColor">#40000000</Color>
+
+    <SolidColorBrush x:Key="BgBrush"          Color="#F5F5F2"/>
+    <SolidColorBrush x:Key="SidebarBrush"     Color="#EDEDE8"/>
+    <SolidColorBrush x:Key="SurfaceBrush"     Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Surface2Brush"    Color="#F1F1EC"/>
+    <SolidColorBrush x:Key="HoverBrush"       Color="#0D000000"/>
+    <SolidColorBrush x:Key="PressBrush"       Color="#1A000000"/>
+    <SolidColorBrush x:Key="LineBrush"        Color="#E0E0D9"/>
+    <SolidColorBrush x:Key="Line2Brush"       Color="#CFCFC7"/>
+    <SolidColorBrush x:Key="TextBrush"        Color="#141416"/>
+    <SolidColorBrush x:Key="MutedBrush"       Color="#66666E"/>
+    <SolidColorBrush x:Key="FaintBrush"       Color="#A2A2A8"/>
+    <SolidColorBrush x:Key="AccentBrush"      Color="#C8F135"/>
+    <SolidColorBrush x:Key="AccentTextBrush"  Color="#5A7800"/>
+    <SolidColorBrush x:Key="OnAccentBrush"    Color="#0B0B0C"/>
+    <SolidColorBrush x:Key="AccentSoftBrush"  Color="#33B5DD1F"/>
+    <SolidColorBrush x:Key="AccentLineBrush"  Color="#8C9BBF1A"/>
+    <SolidColorBrush x:Key="DangerBrush"      Color="#D93636"/>
+    <SolidColorBrush x:Key="DangerSoftBrush"  Color="#17D93636"/>
+    <SolidColorBrush x:Key="WarnBrush"        Color="#B26B00"/>
+    <SolidColorBrush x:Key="WarnSoftBrush"    Color="#1AB26B00"/>
+    <SolidColorBrush x:Key="InfoBrush"        Color="#2A6FDB"/>
+    <SolidColorBrush x:Key="OverlayBrush"     Color="#8C1A1A1C"/>
+    <SolidColorBrush x:Key="FlagEdgeBrush"    Color="#26000000"/>
+</ResourceDictionary>

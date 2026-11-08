@@ -9,20 +9,44 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <Product>FsocietyNet</Product>
+    <Company>fsociety</Company>
+    <Copyright>fsociety-vpn.org</Copyright>
+    <SatelliteResourceLanguages>en;ru</SatelliteResourceLanguages>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- WFAC010: DPI is set in the manifest on purpose (WPF window); CS4014: fire-and-forget UI loads -->
+    <NoWarn>$(NoWarn);WFAC010;CS4014</NoWarn>
   </PropertyGroup>
+
+  <!-- Preview build (dotnet build -p:Preview=true): no admin prompt, used for `FsocietyNet.exe -render <dir>`
+       (screens with demo data → PNG) and UI checks without touching the network or the VPN. -->
+  <PropertyGroup Condition="'$(Preview)'=='true'">
+    <ApplicationManifest>app.preview.manifest</ApplicationManifest>
+    <DefineConstants>$(DefineConstants);PREVIEW</DefineConstants>
+  </PropertyGroup>
+
   <!-- Remove conflicting implicit usings that clash between WPF and WinForms -->
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
   </ItemGroup>
 
-  <!-- Вшитые бинарники AmneziaWG. Файлы должны лежать в FsocietyNet/Resources/ -->
   <ItemGroup>
-    <EmbeddedResource Include="Resources\amneziawg.exe" Condition="Exists('Resources\amneziawg.exe')" />
-    <EmbeddedResource Include="Resources\wintun.dll"    Condition="Exists('Resources\wintun.dll')" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+  <!-- VPN binaries, extracted at runtime to %ProgramData%\FsocietyNet\bin (Services\Binaries.cs).
+       amneziawg.exe + wintun.dll are in git; sing-box.zip and byedpi.zip come from tools\fetch-binaries.ps1
+       (official releases, pinned sha256). Without them the build still works — those protocols say so. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\amneziawg.exe" Condition="Exists('Resources\amneziawg.exe')" LogicalName="bin.amneziawg.exe" />
+    <EmbeddedResource Include="Resources\wintun.dll" Condition="Exists('Resources\wintun.dll')" LogicalName="bin.wintun.dll" />
+    <EmbeddedResource Include="Resources\sing-box.zip" Condition="Exists('Resources\sing-box.zip') And '$(Preview)'!='true'" LogicalName="bin.sing-box.zip" />
+    <EmbeddedResource Include="Resources\byedpi.zip" Condition="Exists('Resources\byedpi.zip')" LogicalName="bin.byedpi.zip" />
   </ItemGroup>
 </Project>

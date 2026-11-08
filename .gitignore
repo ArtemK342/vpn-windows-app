@@ -34,3 +34,11 @@ artifacts/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local builds and downloaded binaries (tools/fetch-binaries.ps1)
+out-preview/
+out-release/
+out-release-sc/
+FsocietyNet/Resources/sing-box.zip
+FsocietyNet/Resources/byedpi.zip
+*.tmp
