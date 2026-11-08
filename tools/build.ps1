@@ -15,8 +15,12 @@ if ($Preview) {
     return
 }
 if ($SelfContained) {
+    # The release file: .NET inside, the exe installs itself (Services\Installer.cs). Upload it as FsocietyNet-Setup.exe
+    # to the GitHub release and as FsocietyNet-Setup-<version>.exe to /var/www/html/download/files on the site.
+    $out = Join-Path $root 'out-release-sc'
     dotnet publish $proj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true `
-        -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o (Join-Path $root 'out-release-sc')
+        -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o $out
+    Copy-Item (Join-Path $out 'FsocietyNet.exe') (Join-Path $out 'FsocietyNet-Setup.exe') -Force
 } else {
     dotnet publish $proj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o (Join-Path $root 'out-release')
 }

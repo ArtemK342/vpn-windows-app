@@ -121,6 +121,19 @@ public static class Renderer
         }
         Vpn.DemoSet(VpnStatus.Off, null);
 
+        // Installer / uninstaller windows (dark theme)
+        AppSettings.Current.Theme = "dark";
+        Theme.Apply();
+        foreach (var (un, n) in new[] { (false, "20-setup"), (true, "21-uninstall") })
+        {
+            var iw = InstallerWindow.Preview(un);
+            iw.Left = -20000; iw.Top = 0; iw.ShowActivated = false; iw.ShowInTaskbar = false;
+            iw.Show();
+            await Settle(400);
+            Save(iw, dir, n);
+            iw.Close();
+        }
+
         // Icons as the shell shows them
         foreach (var (st, n) in new[] { (BrandState.Normal, "app"), (BrandState.Connected, "tray-on"), (BrandState.Off, "tray-off"),
                      (BrandState.Busy, "tray-busy"), (BrandState.Blocked, "tray-blocked") })

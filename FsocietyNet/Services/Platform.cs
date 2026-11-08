@@ -152,9 +152,10 @@ public static class Autostart
 {
     const string TaskName = "FsocietyNet";
 
-    public static async Task<bool> Set(bool on)
+    /// <param name="exePath">The installed exe (the installer passes it; otherwise this process).</param>
+    public static async Task<bool> Set(bool on, string? exePath = null)
     {
-        var exe = Environment.ProcessPath ?? "";
+        var exe = exePath ?? Environment.ProcessPath ?? "";
         var psi = new System.Diagnostics.ProcessStartInfo("schtasks.exe") { UseShellExecute = false, CreateNoWindow = true };
         if (on)
         {

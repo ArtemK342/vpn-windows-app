@@ -38,6 +38,25 @@ public partial class App : Application
             return;
         }
 
+        Paths.EnsureUserDir();
+        AppSettings.Load();
+        Theme.Apply();
+
+        // «Apps → FsocietyNet → Uninstall», or the downloaded exe started outside the installed folder → installer.
+        // Before the single-instance mutex: the installer must not block the app it is about to start.
+        if (args.Contains("--uninstall"))
+        {
+            InstallerWindow.RunUninstall();
+            Shutdown();
+            return;
+        }
+        if (Installer.ShouldOffer(args))
+        {
+            InstallerWindow.RunInstall();
+            Shutdown();
+            return;
+        }
+
         _single = new Mutex(true, @"Local\FsocietyNet.Single", out var first);
         _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\FsocietyNet.Show");
         _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\FsocietyNet.Quit");
@@ -60,9 +79,6 @@ public partial class App : Application
             }
         }
 
-        Paths.EnsureUserDir();
-        AppSettings.Load();
-        Theme.Apply();
         Theme.WatchSystem();
         DispatcherUnhandledException += (_, ex) => { Log.E("ui", ex.Exception); ex.Handled = true; };
         TaskScheduler.UnobservedTaskException += (_, ex) => { Log.E("task", ex.Exception); ex.SetObserved(); };
