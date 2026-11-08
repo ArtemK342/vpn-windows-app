@@ -112,6 +112,9 @@
                         <TextBlock Text="{v:T home.label}" Style="{StaticResource T.Label}"/>
                         <TextBlock x:Name="StateTitle" Style="{StaticResource T.H1}" FontSize="27" Margin="0,8,0,0"/>
                         <TextBlock x:Name="StateSub" Style="{StaticResource T.Muted}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                        <!-- Settings → Bypass → «always»: the zapret service runs next to the VPN -->
+                        <TextBlock x:Name="BypassStatus" FontFamily="{StaticResource MonoFont}" FontSize="11.5" Margin="0,14,0,0"
+                                   TextWrapping="Wrap" Visibility="Collapsed"/>
                     </StackPanel>
 
                     <!-- Power button with ring -->

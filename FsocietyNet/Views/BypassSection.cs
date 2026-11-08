@@ -22,11 +22,20 @@ public sealed partial class SettingsView
         {
             ("zapret", Loc.Get("bypass.engine_zapret"), Loc.Get("bypass.engine_zapret_desc")),
             ("byedpi", Loc.Get("bypass.engine_byedpi"), Loc.Get("bypass.engine_byedpi_desc")),
-        }, zapret ? "zapret" : "byedpi", v =>
+        }, zapret ? "zapret" : "byedpi", async v =>
         {
             St.BypassEngine = v;
             AppSettings.Save();
             zapretPanel.Visibility = v == "zapret" ? Visibility.Visible : Visibility.Collapsed;
+            if (v == "byedpi" && St.BypassMode == "system")
+            {
+                // ByeDPI only works from the server list: the zapret service would keep running unseen
+                St.BypassMode = "server";
+                AppSettings.Save();
+                try { await Zapret.RemoveServices(); } catch (Exception e) { Log.E("zapret remove", e); }
+                Dialogs.Toast(Loc.Get("bypass.mode_server_on"));
+            }
+            Zapret.NotifyModeChanged();
         }));
         p.Children.Add(Note(Loc.Get("bypass.apply_note"), 2));
         zapretPanel.Visibility = zapret ? Visibility.Visible : Visibility.Collapsed;
@@ -67,8 +76,15 @@ public sealed partial class SettingsView
         TextBlock Title(string key) => new() { Text = Loc.Get(key), FontWeight = FontWeights.SemiBold };
         TextBlock Desc(string text) => new() { Text = text, Style = S("T.Muted"), Margin = new Thickness(0, 3, 0, 0) };
 
-        // ── Strategy ──
+        // ── Mode: from the server list / always (Windows service) ──
         panel.Children.Add(Label(Loc.F("bypass.zapret_label", Zapret.Version), 26));
+        panel.Children.Add(Options("bmode", new[]
+        {
+            ("server", Loc.Get("bypass.mode_server"), Loc.Get("bypass.mode_server_desc")),
+            ("system", Loc.Get("bypass.mode_system"), Loc.Get("bypass.mode_system_desc")),
+        }, St.BypassMode == "system" ? "system" : "server", async v => await SetMode(v)));
+
+        // ── Strategy ──
         var strategyText = new TextBlock { FontFamily = (FontFamily)FindResource("MonoFont"), FontSize = 14, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 0) };
         void ShowStrategy() => strategyText.Text = St.ZapretStrategy;
         ShowStrategy();
@@ -82,8 +98,8 @@ public sealed partial class SettingsView
         ShowServiceStrategy();
         panel.Children.Add(Box(Title("bypass.strategy"), Desc(Loc.Get("bypass.strategy_desc")), strategyText, serviceStrategy,
             Buttons(
-                Btn("bypass.strategy_pick", "Btn.Secondary", async _ => { if (await PickStrategy()) ShowStrategy(); }),
-                Btn("bypass.tests", "Btn.Primary", async _ => { if (await RunTests()) ShowStrategy(); }))));
+                Btn("bypass.strategy_pick", "Btn.Secondary", async _ => { if (await PickStrategy()) { ShowStrategy(); await ApplyIfSystem(); } }),
+                Btn("bypass.tests", "Btn.Primary", async _ => { if (await RunTests()) { ShowStrategy(); await ApplyIfSystem(); } }))));
 
         // ── SERVICE ──
         panel.Children.Add(Label(Loc.Get("bypass.section_service"), 26));
@@ -92,21 +108,17 @@ public sealed partial class SettingsView
         ShowStatus();
         panel.Children.Add(Box(Title("bypass.service"), Desc(Loc.Get("bypass.service_desc")), status,
             Buttons(
-                Btn("bypass.install", "Btn.Primary", async _ =>
-                {
-                    if (!await Dialogs.Confirm(Loc.Get("bypass.install"), Loc.F("bypass.install_confirm", St.ZapretStrategy), Loc.Get("bypass.install"))) return;
-                    if (Vpn.Active && Vpn.EngineKind == "bypass") await Vpn.Disconnect(false);
-                    var log = await Zapret.InstallService(St.ZapretStrategy);
-                    ShowStatus();
-                    await ShowLog(Loc.Get("bypass.install"), log, Zapret.Status());
-                }),
                 Btn("bypass.remove", "Btn.Danger", async _ =>
                 {
                     if (!await Dialogs.Confirm(Loc.Get("bypass.remove"), Loc.Get("bypass.remove_confirm"), Loc.Get("bypass.remove"), danger: true)) return;
                     if (Vpn.Active && Vpn.EngineKind == "bypass") await Vpn.Disconnect(false);
                     var log = await Zapret.RemoveServices();
-                    ShowStatus();
+                    var wasSystem = St.BypassMode == "system";
+                    St.BypassMode = "server";
+                    AppSettings.Save();
+                    Zapret.NotifyModeChanged();
                     await ShowLog(Loc.Get("bypass.remove"), log, Zapret.Status());
+                    if (wasSystem) Open("bypass"); else ShowStatus();
                 }),
                 Btn("bypass.status", "Btn.Secondary", async _ => { ShowStatus(); await ShowLog(Loc.Get("bypass.status"), null, Zapret.Status()); }))));
 
@@ -120,7 +132,7 @@ public sealed partial class SettingsView
         foreach (var (id, key) in new[] { ("disabled", "bypass.gf_off"), ("all", "bypass.gf_all"), ("tcp", "bypass.gf_tcp"), ("udp", "bypass.gf_udp") })
         {
             var rb = new RadioButton { Style = S("Segment"), GroupName = "gf", Content = Loc.Get(key), IsChecked = g.Mode == id };
-            rb.Checked += (_, _) => { g = g with { Mode = id }; Zapret.SaveGameFilter(g); Dialogs.Toast(Loc.Get("bypass.restart_hint")); };
+            rb.Checked += async (_, _) => { g = g with { Mode = id }; Zapret.SaveGameFilter(g); await Applied(); };
             modes.Children.Add(rb);
         }
         var ports = new Grid { Margin = new Thickness(0, 12, 0, 0), MaxWidth = 460, HorizontalAlignment = HorizontalAlignment.Left };
@@ -140,12 +152,12 @@ public sealed partial class SettingsView
         }
         var tcpBox = PortBox(0, "TCP", g.Tcp);
         var udpBox = PortBox(2, "UDP", g.Udp);
-        var savePorts = Dialogs.Btn(Loc.Get("bypass.gf_save"), "Btn.Secondary", (_, _) =>
+        var savePorts = Dialogs.Btn(Loc.Get("bypass.gf_save"), "Btn.Secondary", async (_, _) =>
         {
             if (!Zapret.ValidPorts(tcpBox.Text) || !Zapret.ValidPorts(udpBox.Text)) { Dialogs.Toast(Loc.Get("bypass.gf_invalid")); return; }
             g = g with { Tcp = tcpBox.Text.Replace(" ", ""), Udp = udpBox.Text.Replace(" ", "") };
             Zapret.SaveGameFilter(g);
-            Dialogs.Toast(Loc.Get("bypass.restart_hint"));
+            await Applied();
         }, 80);
         savePorts.Margin = new Thickness(10, 0, 0, 0);
         savePorts.VerticalAlignment = VerticalAlignment.Bottom;
@@ -156,12 +168,11 @@ public sealed partial class SettingsView
         var ipsetText = new TextBlock { Style = S("T.Muted"), Margin = new Thickness(0, 3, 0, 0) };
         void ShowIpset() => ipsetText.Text = Loc.Get("bypass.ipset_" + Zapret.IpsetStatus());
         ShowIpset();
-        var ipsetBtn = Btn("bypass.ipset_switch", "Btn.Secondary", _ =>
+        var ipsetBtn = Btn("bypass.ipset_switch", "Btn.Secondary", async _ =>
         {
             if (!Zapret.CycleIpset()) Dialogs.Toast(Loc.Get("bypass.ipset_no_backup"));
-            else Dialogs.Toast(Loc.Get("bypass.restart_hint"));
+            else await Applied();
             ShowIpset();
-            return Task.CompletedTask;
         });
 
         // 6. Auto-update check
@@ -169,7 +180,7 @@ public sealed partial class SettingsView
             v => { Zapret.SetUpdateCheck(v); return Task.CompletedTask; });
 
         // 7. Active fakes
-        var fakesBtn = Btn("bypass.fakes", "Btn.Secondary", async _ => await ReplaceFakes());
+        var fakesBtn = Btn("bypass.fakes", "Btn.Secondary", async _ => { if (await ReplaceFakes()) await Applied(); });
 
         panel.Children.Add(new Border
         {
@@ -180,7 +191,7 @@ public sealed partial class SettingsView
                 autoUpdate,
                 Wrap(Title("bypass.fakes"), Desc(Loc.Get("bypass.fakes_desc")), Buttons(fakesBtn)))
         });
-        panel.Children.Add(Note(Loc.Get("bypass.restart_note"), 10));
+        panel.Children.Add(Note(Loc.Get(St.BypassMode == "system" ? "bypass.restart_note_system" : "bypass.restart_note"), 10));
 
         // ── UPDATES ──
         panel.Children.Add(Label(Loc.Get("bypass.section_updates"), 26));
@@ -190,6 +201,7 @@ public sealed partial class SettingsView
                 await Zapret.UpdateIpset();
                 ShowIpset();
                 Dialogs.Toast(Loc.Get("bypass.ipset_updated"));
+                await ApplyIfSystem();
             }),
             Btn("bypass.hosts", "Btn.Secondary", async _ => await HostsCheck()),
             Btn("bypass.check_updates", "Btn.Secondary", async _ =>
@@ -205,7 +217,7 @@ public sealed partial class SettingsView
         panel.Children.Add(Label(Loc.Get("bypass.section_tools"), 26));
         panel.Children.Add(Box(Desc(Loc.Get("bypass.tools_desc")), Buttons(
             Btn("bypass.diagnostics", "Btn.Secondary", async _ => await Diagnostics()),
-            Btn("bypass.tests", "Btn.Secondary", async _ => { if (await RunTests()) ShowStrategy(); }),
+            Btn("bypass.tests", "Btn.Secondary", async _ => { if (await RunTests()) { ShowStrategy(); await ApplyIfSystem(); } }),
             Btn("bypass.user_list", "Btn.Ghost", _ =>
             {
                 try { Process.Start(new ProcessStartInfo("notepad.exe", $"\"{Zapret.UserListPath("list-general-user.txt")}\"") { UseShellExecute = false }); }
@@ -213,6 +225,56 @@ public sealed partial class SettingsView
                 return Task.CompletedTask;
             }))));
         panel.Children.Add(Note(Loc.Get("bypass.credits"), 14));
+    }
+
+    /// <summary>Server list ⇄ always (installs / removes the zapret service with the chosen strategy).</summary>
+    async Task SetMode(string mode)
+    {
+        if (mode == St.BypassMode) return;
+        try
+        {
+            if (mode == "system")
+            {
+                if (Vpn.Active && Vpn.EngineKind == "bypass") await Vpn.Disconnect(false);
+                await Zapret.InstallService(St.ZapretStrategy);
+                if (!Zapret.ServiceRunning) throw new InvalidOperationException(Loc.Get("bypass.mode_system_failed"));
+                St.BypassMode = "system";
+                Dialogs.Toast(Loc.F("bypass.mode_system_on", St.ZapretStrategy));
+            }
+            else
+            {
+                await Zapret.RemoveServices();
+                St.BypassMode = "server";
+                Dialogs.Toast(Loc.Get("bypass.mode_server_on"));
+            }
+        }
+        catch (Exception e)
+        {
+            Log.E("bypass mode", e);
+            await Dialogs.Info(Loc.Get("bypass.mode_title"), e.Message);
+        }
+        AppSettings.Save();
+        Zapret.NotifyModeChanged();
+        Open("bypass");   // the switch shows what really happened
+    }
+
+    /// <summary>System mode: settings take effect at once — the service is reinstalled with them.</summary>
+    static async Task<bool> ApplyIfSystem()
+    {
+        if (St.BypassMode != "system" || Zapret.ServiceState("zapret") == null) return false;
+        try
+        {
+            await Zapret.InstallService(St.ZapretStrategy);
+            Dialogs.Toast(Loc.Get("bypass.applied_service"));
+            Zapret.NotifyModeChanged();
+            return true;
+        }
+        catch (Exception e) { Log.E("zapret apply", e); Dialogs.Toast(e.Message); return false; }
+    }
+
+    static async Task Applied()
+    {
+        if (!await ApplyIfSystem()) Dialogs.Toast(Loc.Get("bypass.restart_hint"));
     }
 
     static StackPanel Wrap(params UIElement[] items)
@@ -272,7 +334,6 @@ public sealed partial class SettingsView
         if (!await MainWindow.Instance!.ShowDialog(p, true, 480)) return false;
         St.ZapretStrategy = chosen;
         AppSettings.Save();
-        Dialogs.Toast(Loc.Get("bypass.restart_hint"));
         return true;
     }
 
@@ -348,7 +409,7 @@ public sealed partial class SettingsView
     }
 
     /// <summary>7. Replace active fakes: Discord UDP / game filter UDP ← one of bin/*.bin.</summary>
-    static async Task ReplaceFakes()
+    static async Task<bool> ReplaceFakes()
     {
         var (fakes, discord, game) = Zapret.Fakes();
         var p = Dialogs.Panel(Loc.Get("bypass.fakes"), Loc.Get("bypass.fakes_desc"));
@@ -374,10 +435,11 @@ public sealed partial class SettingsView
         p.Children.Add(Dialogs.Buttons(
             Dialogs.Btn(Loc.Get("common.cancel"), "Btn.Ghost", (_, _) => MainWindow.Instance!.CloseDialog(false)),
             Dialogs.Btn(Loc.Get("bypass.fakes_apply"), "Btn.Primary", (_, _) => MainWindow.Instance!.CloseDialog(true))));
-        if (!await MainWindow.Instance!.ShowDialog(p, true, 600)) return;
-        if (newDiscord != null && newDiscord != discord) Zapret.ReplaceFake("discord", newDiscord);
-        if (newGame != null && newGame != game) Zapret.ReplaceFake("game", newGame);
-        Dialogs.Toast(Loc.Get("bypass.restart_hint"));
+        if (!await MainWindow.Instance!.ShowDialog(p, true, 600)) return false;
+        var changed = false;
+        if (newDiscord != null && newDiscord != discord) { Zapret.ReplaceFake("discord", newDiscord); changed = true; }
+        if (newGame != null && newGame != game) { Zapret.ReplaceFake("game", newGame); changed = true; }
+        return changed;
     }
 
     /// <summary>9. Update hosts file: like service.bat — the file is only checked, the user copies the block himself.</summary>

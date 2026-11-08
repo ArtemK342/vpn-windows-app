@@ -41,6 +41,13 @@ public partial class App : Application
         _single = new Mutex(true, @"Local\FsocietyNet.Single", out var first);
         _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\FsocietyNet.Show");
         _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\FsocietyNet.Quit");
+        if (!first && args.Contains("--restarted"))
+        {
+            // Tray → «Restart»: the old copy is quitting — wait for it instead of showing it
+            try { _single.WaitOne(TimeSpan.FromSeconds(25)); } catch (AbandonedMutexException) { }
+            first = true;
+        }
+        if (Arg("--reconnect") is { } reconnectId) ReconnectServerId = reconnectId;
         if (!first && !args.Contains("-render"))
         {
             // Another build is running (e.g. an older one hidden in the tray): it quits and this one starts —
@@ -83,6 +90,7 @@ public partial class App : Application
         Tray.Init();
         Tray.OpenRequested += ShowMain;
         Tray.ExitRequested += Quit;
+        Tray.RestartRequested += Restart;
         Vpn.StartWatchdog();
         SessionEnding += (_, _) => { Vpn.ShutdownBlocking(); Tray.Dispose(); };
 
@@ -174,6 +182,25 @@ public partial class App : Application
         w.Activate();
         w.Topmost = true; w.Topmost = false;
         w.Focus();
+    }
+
+    /// <summary>After a restart from the tray: the server that was connected (reconnected once the list loads).</summary>
+    public static string? ReconnectServerId { get; set; }
+
+    /// <summary>Tray → «Restart»: a new copy starts and waits until this one has quit; the VPN comes back.</summary>
+    public static void Restart()
+    {
+        var args = new List<string> { "--restarted" };
+        if (Vpn.Status == VpnStatus.On && Vpn.Server != null) { args.Add("--reconnect"); args.Add(Vpn.Server.id); }
+        if (Current.MainWindow is not Window w || !w.IsVisible) args.Add("--tray");
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
+            foreach (var a in args) psi.ArgumentList.Add(a);
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch (Exception e) { Log.E("restart", e); return; }
+        Quit();
     }
 
     public static void Quit()

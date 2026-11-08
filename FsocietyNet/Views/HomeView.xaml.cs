@@ -96,6 +96,7 @@ public partial class HomeView : UserControl
     DateTime _lastAt;
     bool _autoConnectTried;
     ExternalOverview? _ext;
+    int _ticks;
     Storyboard? _spin;
 
     public HomeView()
@@ -103,11 +104,17 @@ public partial class HomeView : UserControl
         InitializeComponent();
         List.ItemsSource = _rows;
         Vpn.Changed += OnVpn;
-        _tick.Tick += async (_, _) => await Tick();
+        Zapret.ModeChanged += OnBypassMode;
+        _tick.Tick += async (_, _) =>
+        {
+            if (++_ticks % 5 == 1) UpdateBypassStatus();
+            await Tick();
+        };
         _reload.Tick += async (_, _) => await LoadServers(quiet: true);
         _tick.Start();
         _reload.Start();
         OnVpn();
+        UpdateBypassStatus();
         _ = LoadAll();
     }
 
@@ -115,6 +122,7 @@ public partial class HomeView : UserControl
     public void Detach()
     {
         Vpn.Changed -= OnVpn;
+        Zapret.ModeChanged -= OnBypassMode;
         _tick.Stop();
         _reload.Stop();
     }
@@ -133,7 +141,8 @@ public partial class HomeView : UserControl
             Vpn.Servers = list;
             var pings = _rows.ToDictionary(r => r.S.id, r => r.Ping);
             _rows.Clear();
-            foreach (var s in list.Where(s => s.status != "hidden" || s.connectable))
+            // «Always» bypass mode: the zapret service works by itself, the «Обход» row would only confuse
+            foreach (var s in list.Where(s => (s.status != "hidden" || s.connectable) && !(s.IsBypass && Zapret.SystemMode)))
                 _rows.Add(new ServerRow(s) { Ping = pings.GetValueOrDefault(s.id) });
             ApplyFilter();
             _ = PingAll();
@@ -143,6 +152,23 @@ public partial class HomeView : UserControl
         {
             if (_rows.Count == 0) ShowEmpty(Errors.Text(e), true);
         }
+    }
+
+    void OnBypassMode()
+    {
+        UpdateBypassStatus();
+        _ = LoadServers(quiet: true);
+    }
+
+    void UpdateBypassStatus()
+    {
+        if (!Zapret.SystemMode) { BypassStatus.Visibility = Visibility.Collapsed; return; }
+        var running = Zapret.ServiceRunning;
+        BypassStatus.Text = running
+            ? Loc.F("home.bypass_system_on", Zapret.InstalledStrategy() ?? AppSettings.Current.ZapretStrategy)
+            : Loc.Get(Zapret.ServiceState("zapret") == null ? "home.bypass_system_missing" : "home.bypass_system_off");
+        BypassStatus.Foreground = Ui.Res(running ? "AccentTextBrush" : "WarnBrush");
+        BypassStatus.Visibility = Visibility.Visible;
     }
 
     void ShowEmpty(string text, bool retry)
@@ -223,6 +249,12 @@ public partial class HomeView : UserControl
     {
         if (_autoConnectTried) return;
         _autoConnectTried = true;
+        if (App.ReconnectServerId is { } rid)
+        {
+            App.ReconnectServerId = null;
+            if (Vpn.Servers.FirstOrDefault(x => x.id == rid && x.CanConnect) is { } again && !Vpn.Active && !Vpn.Busy)
+            { await Vpn.Connect(again); return; }
+        }
         var s = AppSettings.Current;
         if (!s.ConnectOnStart || s.UserDisconnected || Vpn.Active || Vpn.Busy || Api.DemoMode) return;
         var target = Vpn.Servers.FirstOrDefault(x => x.id == s.LastServerId && x.CanConnect);

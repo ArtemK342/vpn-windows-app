@@ -47,6 +47,15 @@ public static class Renderer
         Save(w, dir, "04-home-connecting");
         Vpn.DemoSet(VpnStatus.Off, null);
 
+        // Settings → Bypass → «always»: no «Обход» row, status line under the title
+        AppSettings.Current.BypassMode = "system"; AppSettings.Current.BypassEngine = "zapret";
+        Zapret.NotifyModeChanged();
+        await Settle(700);
+        Save(w, dir, "04b-home-bypass-always");
+        AppSettings.Current.BypassMode = "server";
+        Zapret.NotifyModeChanged();
+        await Settle(300);
+
         foreach (var (page, name) in new[] { ("rules", "05-rules"), ("news", "06-news"), ("support", "07-support"),
                      ("settings", "08-settings-account"), ("settings_connection", "09-settings-connection"),
                      ("settings_protocols", "10-settings-protocols"), ("settings_bypass", "10b-settings-bypass"), ("settings_appearance", "11-settings-appearance"),
@@ -84,6 +93,32 @@ public static class Renderer
         w.ShowLogin();
         await Settle();
         Save(w, dir, "17-light-login");
+
+        // Tray menu (drawn in place: a popup is not part of the window bitmap)
+        foreach (var (st, n) in new[] { (VpnStatus.Off, "18-tray-menu-off"), (VpnStatus.On, "19-tray-menu-on") })
+        {
+            Vpn.DemoSet(st, Demo.Servers()[0]);
+            var menu = Tray.BuildMenu();
+            var items = menu.Items.Cast<object>().ToList();
+            menu.Items.Clear();
+            var stack = new System.Windows.Controls.StackPanel();
+            foreach (var it in items) stack.Children.Add((UIElement)it);
+            var card = new System.Windows.Controls.Border
+            {
+                Background = (Brush)Application.Current.FindResource("Surface2Brush"), BorderBrush = (Brush)Application.Current.FindResource("Line2Brush"),
+                BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(4), Width = 280,
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Child = stack,
+                Margin = new Thickness(40),
+            };
+            var holder = new System.Windows.Controls.Grid { Background = (Brush)Application.Current.FindResource("BgBrush") };
+            holder.Children.Add(card);
+            var old = w.Content;
+            w.Content = holder;
+            await Settle(300);
+            Save(w, dir, n);
+            w.Content = old;
+        }
+        Vpn.DemoSet(VpnStatus.Off, null);
 
         // Icons as the shell shows them
         foreach (var (st, n) in new[] { (BrandState.Normal, "app"), (BrandState.Connected, "tray-on"), (BrandState.Off, "tray-off"),

@@ -77,6 +77,11 @@ public class AppSettings
     public string LogLevel { get; set; } = "off";           // off | min | max
     /// <summary>«Режим РФ» on Windows: zapret (whole system, WinDivert) or byedpi (system proxy, browsers).</summary>
     public string BypassEngine { get; set; } = "zapret";
+    /// <summary>
+    /// zapret: server = «Обход» row in the server list, instead of a VPN; system = Windows service with the chosen
+    /// strategy, starts with Windows, runs next to the VPN, the row is hidden (Settings → Bypass).
+    /// </summary>
+    public string BypassMode { get; set; } = "server";
     /// <summary>zapret strategy = name of its general*.bat file.</summary>
     public string ZapretStrategy { get; set; } = "general";
     public string? LastServerId { get; set; }

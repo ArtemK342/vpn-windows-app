@@ -129,6 +129,12 @@ public sealed partial class SettingsView : UserControl
     }
 
     static StackPanel Options(string group, (string id, string title, string desc)[] opts, string current, Action<string> changed)
+        => OptionsCore(group, opts, current, changed);
+
+    static StackPanel Options(string group, (string id, string title, string desc)[] opts, string current, Func<string, Task> changed)
+        => OptionsCore(group, opts, current, v => _ = changed(v));
+
+    static StackPanel OptionsCore(string group, (string id, string title, string desc)[] opts, string current, Action<string> changed)
     {
         var p = new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
         foreach (var (id, title, desc) in opts)

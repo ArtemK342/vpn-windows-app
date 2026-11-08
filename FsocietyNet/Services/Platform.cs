@@ -7,69 +7,89 @@ using FsocietyNet.Views;
 
 namespace FsocietyNet.Services;
 
-/// <summary>Tray icon (vector brand mark rendered at the shell's icon size) and its menu.</summary>
+/// <summary>
+/// Tray icon (the brand picture at the shell's icon size) and its menu. The menu is a WPF ContextMenu with the app's
+/// own styles (rounded, theme colours, icons): version, open, connect / disconnect, restart, quit.
+/// </summary>
 public static class Tray
 {
     static WinForms.NotifyIcon? _icon;
     static readonly Dictionary<BrandState, Drawing.Icon> Icons = [];
-    static WinForms.ToolStripMenuItem? _open, _connect, _disconnect, _unblock, _exit;
+    // Invisible owner window: a tray menu closes on a click outside only while the app is the foreground window
+    static Window? _host;
 
     public static event Action? OpenRequested;
     public static event Action? ExitRequested;
+    public static event Action? RestartRequested;
     public static Func<bool>? WindowVisible;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool SetForegroundWindow(IntPtr hwnd);
 
     public static void Init()
     {
-        var menu = new WinForms.ContextMenuStrip { ShowImageMargin = false, Font = new Drawing.Font("Segoe UI", 9.5f) };
-        _open = new("", null, (_, _) => OpenRequested?.Invoke());
-        _connect = new("", null, async (_, _) =>
+        _icon = new WinForms.NotifyIcon { Visible = true };
+        _icon.MouseUp += (_, e) =>
         {
-            var s = Vpn.BestServer();
-            if (s == null) { OpenRequested?.Invoke(); return; }
-            await Vpn.Connect(s);
-        });
-        _disconnect = new("", null, async (_, _) => await Vpn.Disconnect());
-        _unblock = new("", null, async (_, _) => await Vpn.Unblock());
-        _exit = new("", null, (_, _) => ExitRequested?.Invoke());
-        menu.Items.AddRange(new WinForms.ToolStripItem[]
-        {
-            _open, new WinForms.ToolStripSeparator(), _connect, _disconnect, _unblock, new WinForms.ToolStripSeparator(), _exit
-        });
-        menu.Opening += (_, _) => { Style(menu); Update(); };
-
-        _icon = new WinForms.NotifyIcon { ContextMenuStrip = menu, Visible = true };
-        _icon.MouseClick += (_, e) => { if (e.Button == WinForms.MouseButtons.Left) OpenRequested?.Invoke(); };
+            if (e.Button == WinForms.MouseButtons.Left) OpenRequested?.Invoke();
+            else if (e.Button == WinForms.MouseButtons.Right) ShowMenu();
+        };
         Vpn.Changed += Update;
         Update();
     }
 
-    static void Style(WinForms.ContextMenuStrip m)
+    static System.Windows.Controls.MenuItem Item(string text, string icon, Action click, string? brush = null, bool enabled = true)
     {
-        var dark = Theme.IsDark;
-        m.Renderer = new WinForms.ToolStripProfessionalRenderer(new MenuColors(dark)) { RoundedEdges = false };
-        m.BackColor = dark ? Drawing.Color.FromArgb(0x1A, 0x1A, 0x1D) : Drawing.Color.White;
-        m.ForeColor = dark ? Drawing.Color.FromArgb(0xED, 0xED, 0xEF) : Drawing.Color.FromArgb(0x14, 0x14, 0x16);
-        foreach (WinForms.ToolStripItem i in m.Items) { i.ForeColor = m.ForeColor; i.Padding = new WinForms.Padding(4, 5, 4, 5); }
+        var mi = new System.Windows.Controls.MenuItem { Header = text, IsEnabled = enabled };
+        var ic = new Icon { Data = Ui.Geo(icon), Size = 16 };
+        if (brush != null) ic.Brush = Ui.Res(brush);
+        mi.Icon = ic;
+        mi.Click += (_, _) => click();
+        return mi;
     }
 
-    sealed class MenuColors : WinForms.ProfessionalColorTable
+    static void ShowMenu()
     {
-        readonly Drawing.Color _bg, _sel, _line;
-        public MenuColors(bool dark)
+        _host ??= new Window
         {
-            _bg = dark ? Drawing.Color.FromArgb(0x1A, 0x1A, 0x1D) : Drawing.Color.White;
-            _sel = dark ? Drawing.Color.FromArgb(0x2A, 0x2A, 0x30) : Drawing.Color.FromArgb(0xEE, 0xEE, 0xE8);
-            _line = dark ? Drawing.Color.FromArgb(0x33, 0x33, 0x3A) : Drawing.Color.FromArgb(0xDE, 0xDE, 0xD7);
-        }
-        public override Drawing.Color ToolStripDropDownBackground => _bg;
-        public override Drawing.Color MenuItemSelected => _sel;
-        public override Drawing.Color MenuItemBorder => _sel;
-        public override Drawing.Color MenuBorder => _line;
-        public override Drawing.Color SeparatorDark => _line;
-        public override Drawing.Color SeparatorLight => _bg;
-        public override Drawing.Color ImageMarginGradientBegin => _bg;
-        public override Drawing.Color ImageMarginGradientMiddle => _bg;
-        public override Drawing.Color ImageMarginGradientEnd => _bg;
+            WindowStyle = WindowStyle.ToolWindow, ShowInTaskbar = false, ShowActivated = true, ResizeMode = ResizeMode.NoResize,
+            Width = 1, Height = 1, Left = -20000, Top = -20000, Topmost = true, Title = "",
+        };
+        _host.Show();
+        _host.Activate();
+        SetForegroundWindow(new System.Windows.Interop.WindowInteropHelper(_host).Handle);
+
+        var m = BuildMenu();
+        m.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+        m.PlacementTarget = _host;
+        m.Closed += (_, _) => _host?.Hide();
+        m.IsOpen = true;
+    }
+
+    internal static System.Windows.Controls.ContextMenu BuildMenu()
+    {
+        var m = new System.Windows.Controls.ContextMenu();
+        // Header: name and version, greyed like in other tray apps
+        m.Items.Add(new System.Windows.Controls.MenuItem { Header = $"FsocietyNet {App.Version}", IsEnabled = false });
+        m.Items.Add(new System.Windows.Controls.Separator());
+        m.Items.Add(Item(Loc.Get("tray.open"), "I.Home", () => OpenRequested?.Invoke()));
+        m.Items.Add(Vpn.Status switch
+        {
+            VpnStatus.Blocked => Item(Loc.Get("home.unblock"), "I.Shield", async () => await Vpn.Unblock(), "DangerBrush"),
+            VpnStatus.On or VpnStatus.Reconnecting or VpnStatus.Connecting =>
+                Item(Loc.F("tray.disconnect_from", Vpn.Server?.DisplayName ?? ""), "I.Power", async () => await Vpn.Disconnect(), "AccentTextBrush"),
+            VpnStatus.Disconnecting => Item(Loc.Get("home.disconnecting"), "I.Power", () => { }, null, false),
+            _ => Item(Loc.Get("tray.connect"), "I.Power", async () =>
+            {
+                var s = Vpn.BestServer();
+                if (s == null) { OpenRequested?.Invoke(); return; }
+                await Vpn.Connect(s);
+            }),
+        });
+        m.Items.Add(new System.Windows.Controls.Separator());
+        m.Items.Add(Item(Loc.Get("tray.restart"), "I.Refresh", () => RestartRequested?.Invoke()));
+        m.Items.Add(Item(Loc.Get("tray.exit"), "I.Logout", () => ExitRequested?.Invoke()));
+        return m;
     }
 
     static Drawing.Icon IconFor(BrandState st)
@@ -107,15 +127,6 @@ public static class Tray
             _ => Loc.Get("tray.disconnected")
         };
         _icon.Text = ("FsocietyNet · " + text) is var t && t.Length > 63 ? t[..63] : t;
-        if (_open == null) return;
-        _open.Text = Loc.Get("tray.open");
-        _connect!.Text = Loc.Get("tray.connect");
-        _disconnect!.Text = Loc.Get("tray.disconnect");
-        _unblock!.Text = Loc.Get("home.unblock");
-        _exit!.Text = Loc.Get("tray.exit");
-        _connect.Visible = Vpn.Status == VpnStatus.Off;
-        _disconnect.Visible = Vpn.Status is VpnStatus.On or VpnStatus.Reconnecting or VpnStatus.Connecting;
-        _unblock.Visible = Vpn.Status == VpnStatus.Blocked;
     }
 
     /// <summary>Balloon only when the window is hidden (otherwise the app shows the state itself).</summary>
@@ -131,6 +142,8 @@ public static class Tray
         _icon.Visible = false;
         _icon.Dispose();
         _icon = null;
+        _host?.Close();
+        _host = null;
     }
 }
 

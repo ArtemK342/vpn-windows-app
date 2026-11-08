@@ -70,6 +70,16 @@ public static class Zapret
 
     public static bool Embedded => Assembly.GetExecutingAssembly().GetManifestResourceNames().Contains(Resource);
 
+    /// <summary>«Always, for the whole system»: the zapret service does the bypass, the server row is hidden.</summary>
+    public static bool SystemMode =>
+        AppSettings.Current.BypassMode == "system" && AppSettings.Current.BypassEngine != "byedpi" && Embedded;
+
+    /// <summary>Bypass mode / service changed in Settings: the home screen updates its list and status line.</summary>
+    public static event Action? ModeChanged;
+    public static void NotifyModeChanged() => ModeChanged?.Invoke();
+
+    public static bool ServiceRunning => ServiceState(ServiceName) == ServiceControllerStatus.Running;
+
     // ═══ Files ═══
 
     public static void Ensure()
