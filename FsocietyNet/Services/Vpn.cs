@@ -103,6 +103,13 @@ public static class Vpn
                     engine = sb;
                     break;
                 }
+                case "bypass" when AppSettings.Current.BypassEngine != "byedpi" && Zapret.Embedded:
+                {
+                    var z = new ZapretEngine();
+                    await z.Start(AppSettings.Current.ZapretStrategy);
+                    engine = z;
+                    break;
+                }
                 case "bypass":
                 {
                     try { AppCfg = await Api.AppConfig(); } catch { }
@@ -245,6 +252,7 @@ public static class Vpn
         try { await AwgEngine.Cleanup(); } catch { }
         Proc.KillOurs("sing-box.exe");
         Proc.KillOurs("ciadpi.exe");
+        try { Zapret.KillOrphans(); } catch { }
         SystemProxy.Restore();
     }
 

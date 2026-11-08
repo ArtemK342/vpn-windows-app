@@ -7,7 +7,10 @@ $items = @(
     @{ Url = 'https://github.com/SagerNet/sing-box/releases/download/v1.14.4/sing-box-1.14.4-windows-amd64.zip'
        Sha = '99185d75d314a07dbba4a130c8ad986cbeb629a07927975636b341ca61f991df'; Out = 'sing-box.zip' },
     @{ Url = 'https://github.com/hufrea/byedpi/releases/download/v0.17.3/byedpi-17.3-x86_64-w64.zip'
-       Sha = '70d2c94147193cb915f9c6eb5144b8d404dacbcfa90bda2383b6b211afafa456'; Out = 'byedpi.zip' }
+       Sha = '70d2c94147193cb915f9c6eb5144b8d404dacbcfa90bda2383b6b211afafa456'; Out = 'byedpi.zip' },
+    # zapret-discord-youtube (Flowseal). New version: update Url/Sha here, Version + Pinned hashes in Services\Zapret.cs
+    @{ Url = 'https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.4/zapret-discord-youtube-1.10.4.zip'
+       Sha = '291af673bd0238506f9548e0e94ca0abf244000f4c9a06960544fb01c5f97b34'; Out = 'zapret.zip' }
 )
 $ProgressPreference = 'SilentlyContinue'
 foreach ($i in $items) {

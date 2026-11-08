@@ -75,6 +75,10 @@ public class AppSettings
     public double HysteriaDownMBs { get; set; } = 3.0;
     public double HysteriaUpMBs { get; set; } = 1.0;
     public string LogLevel { get; set; } = "off";           // off | min | max
+    /// <summary>«Режим РФ» on Windows: zapret (whole system, WinDivert) or byedpi (system proxy, browsers).</summary>
+    public string BypassEngine { get; set; } = "zapret";
+    /// <summary>zapret strategy = name of its general*.bat file.</summary>
+    public string ZapretStrategy { get; set; } = "general";
     public string? LastServerId { get; set; }
     /// <summary>User pressed «disconnect» himself — then «connect on start» does not reconnect.</summary>
     public bool UserDisconnected { get; set; }

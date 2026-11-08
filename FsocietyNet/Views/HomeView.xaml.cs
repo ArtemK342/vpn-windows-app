@@ -278,7 +278,9 @@ public partial class HomeView : UserControl
             else if (srv.server_type == "wireguard" && s.AppsActive) note = Loc.Get("home.rules_apps_awg");
             else if (srv.server_type == "wireguard" && s.SitesActive && s.Sites.Any(Rules.IsZone)) note = Loc.Get("home.rules_zone_awg");
         }
-        if (srv?.IsBypass == true && on) note = (note == null ? "" : note + "\n") + Loc.Get("home.bypass_note");
+        if (srv?.IsBypass == true && on)
+            note = (note == null ? "" : note + "\n") + Loc.Get(Vpn.EngineKind == "bypass" && AppSettings.Current.BypassEngine != "byedpi" && Zapret.Embedded
+                ? "home.bypass_note_zapret" : "home.bypass_note");
         NoteText.Text = note ?? "";
         NoteText.Visibility = note == null ? Visibility.Collapsed : Visibility.Visible;
 

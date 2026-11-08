@@ -8,7 +8,7 @@ using FsocietyNet.Services;
 namespace FsocietyNet.Views;
 
 /// <summary>Settings: sub-menu on the left, section on the right (Android: Settings → Account / Advanced / …).</summary>
-public sealed class SettingsView : UserControl
+public sealed partial class SettingsView : UserControl
 {
     static AppSettings St => AppSettings.Current;
     static Style S(string k) => (Style)Application.Current.FindResource(k);
@@ -22,6 +22,7 @@ public sealed class SettingsView : UserControl
         ("account", "I.User", "settings.account"),
         ("connection", "I.ShieldCheck", "settings.connection"),
         ("protocols", "I.Gauge", "settings.protocols"),
+        ("bypass", "I.Bolt", "settings.bypass"),
         ("appearance", "I.Moon", "settings.appearance"),
         ("journal", "I.Doc", "settings.journal"),
         ("update", "I.Download", "settings.update"),
@@ -64,6 +65,7 @@ public sealed class SettingsView : UserControl
         {
             "connection" => Connection(),
             "protocols" => Protocols(),
+            "bypass" => Bypass(),
             "appearance" => Appearance(),
             "journal" => Journal(),
             "update" => Update(),

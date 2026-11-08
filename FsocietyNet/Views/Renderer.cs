@@ -49,14 +49,14 @@ public static class Renderer
 
         foreach (var (page, name) in new[] { ("rules", "05-rules"), ("news", "06-news"), ("support", "07-support"),
                      ("settings", "08-settings-account"), ("settings_connection", "09-settings-connection"),
-                     ("settings_protocols", "10-settings-protocols"), ("settings_appearance", "11-settings-appearance"),
+                     ("settings_protocols", "10-settings-protocols"), ("settings_bypass", "10b-settings-bypass"), ("settings_appearance", "11-settings-appearance"),
                      ("settings_journal", "12-settings-journal"), ("settings_about", "13-settings-about") })
         {
             w.Go(page);
             await Settle(page == "support" ? 900 : 500);
             if (page == "support" && w.Page.Content is SupportView sv) { await sv.OpenFirstForPreview(); await Settle(300); }
             Save(w, dir, name);
-            if (page == "settings" && FindScroll(w.Page) is { } sc)
+            if (page.StartsWith("settings") && FindScroll(w.Page) is { } sc)
             {
                 sc.ScrollToEnd();
                 await Settle(200);
@@ -95,6 +95,21 @@ public static class Renderer
         File.WriteAllLines(Path.Combine(dir, "missing-strings.txt"), Loc.Missing.OrderBy(x => x));
 #endif
         File.WriteAllText(Path.Combine(dir, "x25519-selftest.txt"), X25519.SelfTest() ? "ok" : "FAIL");
+
+        // zapret: every strategy → winws.exe arguments (parsing check only, winws is not started)
+        var zsb = new System.Text.StringBuilder();
+        try
+        {
+            Zapret.RootOverride = Path.Combine(dir, "zapret-test");
+            Zapret.Ensure();
+            foreach (var s in Zapret.Strategies()) zsb.AppendLine($"{s}: [{Zapret.Args(s).Count}] " + string.Join(" ¦ ", Zapret.Args(s)));
+            zsb.AppendLine("ipset=" + Zapret.IpsetStatus() + " gamefilter=" + Zapret.ReadGameFilter() + " targets=" + Zapret.Targets().Count);
+            var (fakes, d, g) = Zapret.Fakes();
+            zsb.AppendLine($"fakes={fakes.Count} discord={d} game={g}");
+        }
+        catch (Exception e) { zsb.AppendLine("FAIL " + e); }
+        finally { Zapret.RootOverride = null; }
+        File.WriteAllText(Path.Combine(dir, "zapret-args.txt"), zsb.ToString());
         w.Close();
     }
 

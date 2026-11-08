@@ -41,6 +41,11 @@ then bring ALL functions to the Android level. "Don't ask me" — work autonomou
 - [ ] Real connection test by the user (needs admin + an account): AmneziaWG, VLESS, Trojan, Hysteria2,
       «Режим РФ», kill switch, split tunnelling, autostart. sing-box configs could not be validated here
       (running the downloaded sing-box.exe was blocked in this session) — first thing to check.
+- [x] 2026-11-08 evening (user feedback): Android logo as app/tray icon, caret fix, apps scan, cached news (5),
+      ticket ✓/✓✓ (API migration 019), password fields, danger zone, new build replaces a running old one.
+- [x] Settings → Обход: engines zapret (Flowseal 1.10.4, embedded) / ByeDPI; strategy + tests; all 12 service.bat
+      items as buttons. Strategy parsing checked on all 22 general*.bat (render: zapret-args.txt). winws itself was NOT
+      started here — first real test is the user's.
 - [ ] Release: GitHub release vX.Y.Z (user), then switch the site /download Windows card from «Скоро».
 
 ## How to run

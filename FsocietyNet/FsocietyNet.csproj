@@ -50,5 +50,7 @@
     <EmbeddedResource Include="Resources\wintun.dll" Condition="Exists('Resources\wintun.dll')" LogicalName="bin.wintun.dll" />
     <EmbeddedResource Include="Resources\sing-box.zip" Condition="Exists('Resources\sing-box.zip') And '$(Preview)'!='true'" LogicalName="bin.sing-box.zip" />
     <EmbeddedResource Include="Resources\byedpi.zip" Condition="Exists('Resources\byedpi.zip')" LogicalName="bin.byedpi.zip" />
+    <!-- zapret-discord-youtube (Flowseal) official release zip: Settings → Bypass, Services\Zapret.cs -->
+    <EmbeddedResource Include="Resources\zapret.zip" Condition="Exists('Resources\zapret.zip')" LogicalName="bin.zapret.zip" />
   </ItemGroup>
 </Project>
