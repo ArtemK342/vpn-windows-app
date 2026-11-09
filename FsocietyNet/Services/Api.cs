@@ -64,6 +64,18 @@ public class ServerResponse
 }
 
 public class SubscriptionResponse { public bool is_active { get; set; } public string? plan { get; set; } public string? expires_at { get; set; } }
+// Shop (bot @fsocietynet_agent): Stars order, promo code, purchase log
+public class StarsOrderResponse { public string url { get; set; } = ""; public int stars { get; set; } }
+public class RedeemResponse { public string? message { get; set; } public string? expires_at { get; set; } }
+public class PaymentItem
+{
+    public string? created_at { get; set; }
+    public string? plan { get; set; }
+    public string? method { get; set; }
+    public double? amount { get; set; }
+    public string? currency { get; set; }
+    public bool refunded { get; set; }
+}
 public class UsageResponse { public bool is_limited { get; set; } public long bytes_used { get; set; } public long limit_bytes { get; set; } public string? resets_at { get; set; } }
 public class MaintenanceStatus : Localized { public bool enabled { get; set; } }
 public class AccessStatus
@@ -323,6 +335,10 @@ public static class Api
     public static Task DeleteMe() => DemoMode ? Task.CompletedTask : Call(HttpMethod.Delete, "me");
     public static Task ChangePassword(string oldPassword, string newPassword) =>
         DemoMode ? Task.CompletedTask : Call(HttpMethod.Post, "change-password", new { old_password = oldPassword, new_password = newPassword });
+    public static Task<StarsOrderResponse> StarsOrder() => Post<StarsOrderResponse>("shop/stars-order");
+    public static Task<RedeemResponse> Redeem(string code) => Post<RedeemResponse>("promo/redeem", new { code });
+    public static async Task<List<PaymentItem>> Payments() =>
+        DemoMode ? [] : await Get<List<PaymentItem>>("payments/history");
     public static async Task<SubscriptionResponse?> Subscription()
     {
         SubscriptionResponse? s;

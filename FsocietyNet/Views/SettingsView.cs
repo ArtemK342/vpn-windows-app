@@ -185,6 +185,7 @@ public sealed partial class SettingsView : UserControl
         // Cached value at once (no «Загрузка…» flash), fresh one replaces it when it arrives
         if (Session.SubKnown) ShowSub(subText, Session.Sub); else subText.Text = Loc.Get("common.loading");
         _ = LoadSub(subText);
+        Shop(p, subText);
 
         if (!anon)
         {
@@ -257,6 +258,105 @@ public sealed partial class SettingsView : UserControl
         danger.SetResourceReference(Border.BorderBrushProperty, "DangerSoftBrush");
         p.Children.Add(danger);
         return p;
+    }
+
+    // ── Subscription: buy with Stars, activate a code, purchase log (user 2026-11-09) ──
+    // Stars: an order for this account → the bot @fsocietynet_agent with a ready invoice → the subscription turns on by
+    // itself. A code FS-XXXX-XXXX (paid in the bot or in Tribute) is activated here.
+    void Shop(StackPanel p, TextBlock subText)
+    {
+        var staff = Session.Me?.role is "tester" or "developer" or "admin" or "superadmin";
+        p.Children.Add(Label(Loc.Get("shop.title"), 26));
+        if (!staff)
+        {
+            Button? buy = null;
+            buy = Dialogs.Btn("⭐ " + Loc.Get("shop.buy"), "Btn.Primary", async (_, _) =>
+            {
+                buy!.IsEnabled = false;
+                try { Updates.Open((await Api.StarsOrder()).url); }
+                catch (Exception e) { await Dialogs.Info(Loc.Get("shop.title"), Errors.Text(e)); }
+                finally { buy.IsEnabled = true; }
+            });
+            p.Children.Add(ActionRow(Loc.Get("shop.buy_row"), Loc.Get("shop.buy_desc"), buy, 8));
+        }
+
+        var acc = Session.IsAnonymous ? Loc.Get("shop.anon_account") : Session.Me?.email ?? "";
+        var codeBox = new TextBox { Style = S("Input"), MaxLength = 16, Width = 220, CharacterCasing = CharacterCasing.Upper,
+            FontFamily = (FontFamily)FindResource("MonoFont"), Tag = "FS-XXXX-XXXX" };
+        var result = new TextBlock { Style = S("T.Muted"), Margin = new Thickness(0, 10, 0, 0), TextWrapping = TextWrapping.Wrap };
+        Button? go = null;
+        go = Dialogs.Btn(Loc.Get("shop.activate"), "Btn.Secondary", async (_, _) =>
+        {
+            var code = codeBox.Text.Trim();
+            if (code.Length == 0) { codeBox.Focus(); return; }
+            if (staff) { result.Text = Loc.Get("shop.staff"); return; }
+            go!.IsEnabled = false;
+            try
+            {
+                var r = await Api.Redeem(code);
+                var until = DateTime.TryParse(r.expires_at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var d)
+                    ? d.ToLocalTime().ToString("dd.MM.yyyy") : "—";
+                result.Text = Loc.F("shop.activated", until);
+                result.Foreground = Ui.Res("AccentTextBrush");
+                codeBox.Text = "";
+                _ = LoadSub(subText);
+            }
+            catch (Exception e) { result.Text = Errors.Text(e); result.Foreground = Ui.Res("DangerBrush"); }
+            finally { go.IsEnabled = true; }
+        });
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
+        row.Children.Add(codeBox);
+        go.Margin = new Thickness(10, 0, 0, 0);
+        row.Children.Add(go);
+        var codeCard = new StackPanel();
+        codeCard.Children.Add(new TextBlock { Text = Loc.Get("shop.code_title"), FontWeight = FontWeights.SemiBold });
+        codeCard.Children.Add(new TextBlock { Text = Loc.F("shop.code_desc", acc), Style = S("T.Muted"), TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 3, 0, 0) });
+        codeCard.Children.Add(row);
+        codeCard.Children.Add(result);
+        p.Children.Add(new Border { Style = S("Card"), Padding = new Thickness(20, 16, 16, 16), Margin = new Thickness(0, 8, 0, 0), Child = codeCard });
+
+        // Purchase log: date, method, amount — no receipts
+        p.Children.Add(Label(Loc.Get("shop.history"), 26));
+        var list = new StackPanel();
+        list.Children.Add(new TextBlock { Text = Loc.Get("common.loading"), Style = S("T.Muted") });
+        p.Children.Add(Card(list, 8));
+        _ = LoadPayments(list);
+    }
+
+    static async Task LoadPayments(StackPanel list)
+    {
+        List<PaymentItem> items;
+        try { items = await Api.Payments(); }
+        catch (Exception e) { list.Children.Clear(); list.Children.Add(new TextBlock { Text = Errors.Text(e), Style = S("T.Muted") }); return; }
+        list.Children.Clear();
+        if (items.Count == 0) { list.Children.Add(new TextBlock { Text = Loc.Get("shop.history_empty"), Style = S("T.Muted"), TextWrapping = TextWrapping.Wrap }); return; }
+        foreach (var x in items)
+        {
+            var g = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+            g.ColumnDefinitions.Add(new ColumnDefinition());
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var date = DateTime.TryParse(x.created_at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var d)
+                ? d.ToLocalTime().ToString("dd.MM.yyyy") : "";
+            var method = x.method switch { "telegram_stars" => Loc.Get("shop.method_stars"), "tribute" => "Tribute", var m => m ?? "" };
+            var left = new StackPanel();
+            var plan = Loc.Get("plan.month");
+            left.Children.Add(new TextBlock { Text = char.ToUpper(plan[0]) + plan[1..], FontWeight = FontWeights.SemiBold });
+            left.Children.Add(new TextBlock { Text = $"{date} · {method}" + (x.refunded ? " · " + Loc.Get("shop.refunded") : ""), Style = S("T.Caps") });
+            g.Children.Add(left);
+            var amount = new TextBlock { Text = Money(x.amount, x.currency), FontFamily = (FontFamily)Application.Current.FindResource("MonoFont"),
+                VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(amount, 1);
+            g.Children.Add(amount);
+            list.Children.Add(g);
+        }
+    }
+
+    static string Money(double? amount, string? currency)
+    {
+        if (amount is not double a) return "";
+        var n = a % 1 == 0 ? ((long)a).ToString() : a.ToString("0.00", CultureInfo.InvariantCulture);
+        return currency switch { "XTR" => $"{n} ⭐", "RUB" => $"{n} ₽", "EUR" => $"€{n}", "USD" => $"${n}", _ => $"{n} {currency}" };
     }
 
     /// <summary>Card with a title + description on the left and one button on the right.</summary>
