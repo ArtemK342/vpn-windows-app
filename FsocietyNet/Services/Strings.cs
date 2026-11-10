@@ -509,7 +509,7 @@ public static class Strings
         ["account.subscription"] = ("Подписка", "Subscription"),
         ["shop.title"] = ("ПОДПИСКА И ОПЛАТА", "SUBSCRIPTION AND PAYMENT"),
         ["shop.buy"] = ("Оплатить звёздами", "Pay with Stars"),
-        ["shop.buy_row"] = ("«Месяц» за звёзды Telegram", "Monthly for Telegram Stars"),
+        ["shop.buy_row"] = ("«Стандарт» за звёзды Telegram", "Standard for Telegram Stars"),
         ["shop.buy_desc"] = ("Откроется бот @fsocietynet_agent с готовым счётом — после оплаты подписка включится сама. Есть подписка — срок продлится.",
                              "The @fsocietynet_agent bot opens with a ready invoice — the subscription turns on by itself. An active one is extended."),
         ["shop.code_title"] = ("Активировать код", "Activate a code"),
