@@ -110,7 +110,7 @@
             <Button Style="{StaticResource Btn.Chrome}" Click="Min_Click" ToolTip="{v:T win.min}">
                 <v:Icon Data="{StaticResource I.Min}" Size="15" Stroke="1.5"/>
             </Button>
-            <Button Style="{StaticResource Btn.Chrome}" Click="Max_Click" Visibility="Collapsed">
+            <Button Style="{StaticResource Btn.Chrome}" Click="Max_Click" ToolTip="{v:T win.max}">
                 <v:Icon x:Name="MaxIcon" Data="{StaticResource I.Max}" Size="13" Stroke="1.6"/>
             </Button>
             <Button Style="{StaticResource Btn.ChromeClose}" Click="Close_Click" ToolTip="{v:T win.close}">

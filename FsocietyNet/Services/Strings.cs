@@ -21,6 +21,7 @@ public static class Strings
 
         // ── Window / navigation ──
         ["win.min"] = ("Свернуть", "Minimise"), ["win.close"] = ("Закрыть", "Close"),
+        ["win.max"] = ("На весь экран / обычный размер", "Full screen / normal size"),
         ["nav.home"] = ("Главная", "Home"), ["nav.rules"] = ("Правила", "Rules"), ["nav.news"] = ("Новости", "News"),
         ["nav.support"] = ("Поддержка", "Support"), ["nav.settings"] = ("Настройки", "Settings"),
 
