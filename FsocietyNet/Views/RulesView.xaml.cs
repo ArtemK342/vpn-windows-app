@@ -148,46 +148,55 @@ public partial class RulesView : UserControl
 
     async Task LoadApps()
     {
-        // Already chosen programs at once, the Start menu scan adds the rest
-        var selected = S.Apps;
-        _apps.AddRange(selected.Select(a => new AppItem { Name = a.Name, Exe = a.Exe, Path = a.Path, Selected = true }));
+        // Сразу — прошлый список с диска (кэш AppScan), пересканирование меню «Пуск» идёт в фоне и подменяет
+        // список, только если он изменился (юзер 2026-11-19: на Windows список открывался очень долго)
         AppsList.ItemsSource = _apps;
-        if (_apps.Count > 0) AppsLoading.Visibility = Visibility.Collapsed;
-        var installed = await AppScan.InstalledAsync();
+        AppScan.Updated += OnAppsUpdated;
+        Unloaded += (_, _) => AppScan.Updated -= OnAppsUpdated;
+        Loaded += (_, _) => { AppScan.Updated -= OnAppsUpdated; AppScan.Updated += OnAppsUpdated; };
+        var cached = AppScan.Cached();
+        if (cached != null) ShowApps(cached);
+        else
+        {
+            // Первый запуск: пока идёт скан — хотя бы уже выбранные программы
+            _apps.AddRange(S.Apps.Select(a => new AppItem { Name = a.Name, Exe = a.Exe, Path = a.Path, Selected = true }));
+            if (_apps.Count > 0) AppsLoading.Visibility = Visibility.Collapsed;
+        }
+        var fresh = await AppScan.RefreshAsync();
+        if (cached == null) ShowApps(fresh);   // при кэше обновление придёт через Updated (если список изменился)
+    }
+
+    void OnAppsUpdated(List<TunnelApp> list) => Dispatcher.BeginInvoke(() => ShowApps(list));
+
+    void ShowApps(List<TunnelApp> installed)
+    {
+        var selected = S.Apps;
+        installed = installed.ToList();
         foreach (var a in selected)
             if (!installed.Any(i => i.Exe.Equals(a.Exe, StringComparison.OrdinalIgnoreCase))) installed.Add(a);
+        // Значки, что уже загружены, переносим — не мигать при обновлении
+        var icons = new Dictionary<string, ImageSource>(StringComparer.OrdinalIgnoreCase);
+        foreach (var a in _apps) if (a.IconImage != null) icons.TryAdd(a.Path, a.IconImage);
         _apps.Clear();
         _apps.AddRange(installed.Select(a => new AppItem
         {
             Name = a.Name, Exe = a.Exe, Path = a.Path,
-            Selected = selected.Any(x => x.Exe.Equals(a.Exe, StringComparison.OrdinalIgnoreCase))
+            Selected = selected.Any(x => x.Exe.Equals(a.Exe, StringComparison.OrdinalIgnoreCase)),
+            IconImage = icons.TryGetValue(a.Path, out var ic) ? ic : null,
         }).OrderByDescending(a => a.Selected).ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase));
         CollectionViewSource.GetDefaultView(_apps).Refresh();
         AppsLoading.Text = Loc.Get("rules.apps_none");
         AppsLoading.Visibility = _apps.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         RefreshAppsHeader();
+        var todo = _apps.Where(a => a.IconImage == null).ToList();
         _ = Task.Run(() =>
         {
-            foreach (var a in _apps.ToList())
+            foreach (var a in todo)
             {
-                var img = ExeIcon(a.Path);
+                var img = AppIconCache.Get(a.Path);
                 if (img != null) Dispatcher.BeginInvoke(() => a.IconImage = img);
             }
         });
-    }
-
-    static ImageSource? ExeIcon(string path)
-    {
-        try
-        {
-            if (!File.Exists(path)) return null;
-            using var ic = Drawing.Icon.ExtractAssociatedIcon(path);
-            if (ic == null) return null;
-            var src = Imaging.CreateBitmapSourceFromHIcon(ic.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-            src.Freeze();
-            return src;
-        }
-        catch { return null; }
     }
 
     void RefreshAppsHeader()
@@ -251,7 +260,7 @@ public partial class RulesView : UserControl
         var item = _apps.FirstOrDefault(a => a.Exe.Equals(exe, StringComparison.OrdinalIgnoreCase));
         if (item == null)
         {
-            item = new AppItem { Name = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName), Exe = exe, Path = dlg.FileName, IconImage = ExeIcon(dlg.FileName) };
+            item = new AppItem { Name = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName), Exe = exe, Path = dlg.FileName, IconImage = AppIconCache.Get(dlg.FileName) };
             _apps.Insert(0, item);
             CollectionViewSource.GetDefaultView(_apps).Refresh();
         }
@@ -264,5 +273,51 @@ public partial class RulesView : UserControl
         var q = AppSearch.Text.Trim();
         CollectionViewSource.GetDefaultView(_apps).Filter = q.Length == 0 ? null
             : o => o is AppItem a && (a.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase) || a.Exe.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
+/// <summary>
+/// Значки программ: из файла .exe (медленно) один раз, дальше — PNG в %AppData%\FsocietyNet\icons (ключ — путь и
+/// время изменения файла, так что после обновления программы значок пересоздаётся).
+/// </summary>
+static class AppIconCache
+{
+    static readonly string Dir = Path.Combine(Paths.UserDir, "icons");
+
+    public static ImageSource? Get(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            var key = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(
+                System.Text.Encoding.UTF8.GetBytes(path.ToLowerInvariant() + "|" + File.GetLastWriteTimeUtc(path).Ticks)));
+            var file = Path.Combine(Dir, key + ".png");
+            if (File.Exists(file))
+            {
+                var bi = new BitmapImage();
+                bi.BeginInit();
+                bi.CacheOption = BitmapCacheOption.OnLoad;   // файл не держим открытым
+                bi.UriSource = new Uri(file);
+                bi.EndInit();
+                bi.Freeze();
+                return bi;
+            }
+            using var ic = Drawing.Icon.ExtractAssociatedIcon(path);
+            if (ic == null) return null;
+            var src = Imaging.CreateBitmapSourceFromHIcon(ic.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            src.Freeze();
+            try
+            {
+                Directory.CreateDirectory(Dir);
+                var enc = new PngBitmapEncoder();
+                enc.Frames.Add(BitmapFrame.Create(src));
+                var tmp = file + ".tmp";
+                using (var fs = File.Create(tmp)) enc.Save(fs);
+                File.Move(tmp, file, true);
+            }
+            catch { }
+            return src;
+        }
+        catch { return null; }
     }
 }

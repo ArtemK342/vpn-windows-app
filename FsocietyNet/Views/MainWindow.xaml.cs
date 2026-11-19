@@ -56,6 +56,8 @@ public partial class MainWindow : Window
         if (Session.SignedIn) ShowApp(); else ShowLogin();
         UpdateState();
         _ = CheckUpdate();
+        // Список программ для «Правил» обновляется в фоне заранее (кэш на диске) — вкладка открывается сразу
+        _ = Task.Run(async () => { await Task.Delay(6000); await AppScan.RefreshAsync(); });
     }
 
     void OnTheme() => Theme.StyleFrame(new WindowInteropHelper(this).Handle);

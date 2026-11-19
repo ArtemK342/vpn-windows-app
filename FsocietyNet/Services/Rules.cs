@@ -265,23 +265,87 @@ public static class Cidr
 public static class AppScan
 {
     static List<TunnelApp>? _cache;
+    static Task<List<TunnelApp>>? _running;
+    static readonly object Gate = new();
+    static readonly string CacheFile = System.IO.Path.Combine(Paths.UserDir, "apps-cache.json");
+
+    /// <summary>A fresh scan finished and the list differs from what was shown (UI thread is not guaranteed).</summary>
+    public static event Action<List<TunnelApp>>? Updated;
 
     /// <summary>
-    /// Scan on its own STA thread (WScript.Shell is an apartment COM object: from a pool thread every call was
-    /// marshalled) and once per run. Never throws: a failure gives an empty list instead of an endless «Loading».
+    /// Last known list at once (memory, else %AppData%\FsocietyNetpps-cache.json from the previous run), or null
+    /// when there was never a scan. The Rules screen shows it immediately and refreshes in the background
+    /// (user 2026-11-19: the list took long to open on Windows).
     /// </summary>
-    public static Task<List<TunnelApp>> InstalledAsync()
+    public static List<TunnelApp>? Cached()
     {
-        if (_cache != null) return Task.FromResult(_cache.ToList());
-        var tcs = new TaskCompletionSource<List<TunnelApp>>();
-        var t = new Thread(() =>
+        lock (Gate)
         {
-            try { _cache = Installed(); tcs.SetResult(_cache.ToList()); }
-            catch (Exception e) { Log.E("app scan", e); tcs.SetResult([]); }
-        }) { IsBackground = true };
-        t.SetApartmentState(ApartmentState.STA);
-        t.Start();
-        return tcs.Task;
+            if (_cache != null) return _cache.ToList();
+            try
+            {
+                if (File.Exists(CacheFile))
+                    _cache = System.Text.Json.JsonSerializer.Deserialize<List<TunnelApp>>(File.ReadAllText(CacheFile));
+            }
+            catch (Exception e) { Log.E("app cache read", e); }
+            return _cache?.ToList();
+        }
+    }
+
+    /// <summary>Old name: the cached list if any, else waits for a scan.</summary>
+    public static Task<List<TunnelApp>> InstalledAsync() =>
+        Cached() is { } c ? Task.FromResult(c) : RefreshAsync();
+
+    /// <summary>
+    /// Rescan the Start menu (one scan at a time) on its own STA thread (WScript.Shell is an apartment COM object:
+    /// from a pool thread every call was marshalled), save to disk, raise <see cref="Updated"/> if the list changed.
+    /// Never throws: a failure keeps the old list (or gives an empty one) instead of an endless «Loading».
+    /// </summary>
+    public static Task<List<TunnelApp>> RefreshAsync()
+    {
+        lock (Gate)
+        {
+            if (_running != null) return _running;
+            var tcs = new TaskCompletionSource<List<TunnelApp>>();
+            _running = tcs.Task;
+            var t = new Thread(() =>
+            {
+                List<TunnelApp> list;
+                bool changed = false;
+                try
+                {
+                    list = Installed();
+                    lock (Gate)
+                    {
+                        changed = _cache == null || !Same(_cache, list);
+                        _cache = list;
+                    }
+                    if (changed) Save(list);
+                }
+                catch (Exception e) { Log.E("app scan", e); list = Cached() ?? []; }
+                lock (Gate) _running = null;
+                tcs.SetResult(list.ToList());
+                if (changed) try { Updated?.Invoke(list.ToList()); } catch (Exception e) { Log.E("app scan event", e); }
+            }) { IsBackground = true, Priority = ThreadPriority.BelowNormal };
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
+            return _running;
+        }
+    }
+
+    static bool Same(List<TunnelApp> a, List<TunnelApp> b) =>
+        a.Count == b.Count && a.Zip(b).All(p => p.First.Exe == p.Second.Exe && p.First.Name == p.Second.Name && p.First.Path == p.Second.Path);
+
+    static void Save(List<TunnelApp> list)
+    {
+        try
+        {
+            Paths.EnsureUserDir();
+            var tmp = CacheFile + ".tmp";
+            File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize(list));
+            File.Move(tmp, CacheFile, true);
+        }
+        catch (Exception e) { Log.E("app cache write", e); }
     }
 
     static List<TunnelApp> Installed()
