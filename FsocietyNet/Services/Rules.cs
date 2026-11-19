@@ -394,6 +394,63 @@ public static class AppScan
                 catch { }
             }
         }
+        try { AddPackaged(found, deadline); } catch (Exception e) { Log.E("app scan (store apps)", e); }
         return found.Values.OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// Программы из Microsoft Store / MSIX (Claude и др.): у них нет ярлыка .lnk в меню «Пуск» (юзер 2026-11-19 не
+    /// нашёл Claude). Имя — из папки «Приложения» (shell:AppsFolder, AUMID «Семейство!Id»), файл .exe — из
+    /// AppxManifest.xml пакета (папка пакета — из реестра AppModel\Repository\Packages).
+    /// </summary>
+    static void AddPackaged(Dictionary<string, TunnelApp> found, long deadline)
+    {
+        // Папки установленных пакетов: семейство (Имя_Издатель) → корень
+        var roots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using (var repo = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                   @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages"))
+        {
+            if (repo == null) return;
+            foreach (var full in repo.GetSubKeyNames())
+            {
+                var parts = full.Split('_');
+                if (parts.Length < 5) continue;
+                using var k = repo.OpenSubKey(full);
+                if (k?.GetValue("PackageRootFolder") is string root && Directory.Exists(root))
+                    roots[parts[0] + "_" + parts[^1]] = root;   // при нескольких версиях — последняя в списке
+            }
+        }
+        dynamic? shell = null;
+        try { shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application")!); } catch { }
+        dynamic? folder = shell?.NameSpace("shell:AppsFolder");
+        if (folder == null) return;
+        var manifests = new Dictionary<string, System.Xml.Linq.XDocument?>(StringComparer.OrdinalIgnoreCase);
+        foreach (dynamic item in folder.Items())
+        {
+            if (Environment.TickCount64 > deadline) break;
+            try
+            {
+                string aumid = item.Path ?? "", name = item.Name ?? "";
+                var bang = aumid.IndexOf('!');
+                if (bang <= 0 || name.Length == 0) continue;
+                if (!roots.TryGetValue(aumid[..bang], out var root)) continue;
+                var appId = aumid[(bang + 1)..];
+                if (!manifests.TryGetValue(root, out var doc))
+                {
+                    var mf = System.IO.Path.Combine(root, "AppxManifest.xml");
+                    doc = File.Exists(mf) ? System.Xml.Linq.XDocument.Load(mf) : null;
+                    manifests[root] = doc;
+                }
+                var exeRel = doc?.Descendants().FirstOrDefault(e => e.Name.LocalName == "Application"
+                    && (string?)e.Attribute("Id") == appId)?.Attribute("Executable")?.Value;
+                if (string.IsNullOrEmpty(exeRel) || !exeRel.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
+                var exe = System.IO.Path.GetFileName(exeRel);
+                var low = exe.ToLowerInvariant();
+                if (low.Contains("unins") || low.Contains("setup") || low is "explorer.exe" or "cmd.exe") continue;
+                if (!found.ContainsKey(exe))
+                    found[exe] = new TunnelApp { Name = name, Exe = exe, Path = System.IO.Path.Combine(root, exeRel) };
+            }
+            catch { }
+        }
     }
 }
