@@ -26,18 +26,25 @@ public partial class MainWindow : Window
         Instance = this;
         InitializeComponent();
         Title = Brand.Title;
-        // Фиксированный размер, как у других VPN (юзер 2026-11-19): мышкой не растягивается, кнопка «развернуть» —
-        // на весь экран и обратно. Размер от экрана: ~55% ширины рабочей области, но 960…1180 (меньше 940 вёрстка
-        // в две колонки не помещается): Full HD → ~1056×680, 2K и больше → 1180×760; не больше рабочей области.
+        // Размер окна (юзер 2026-11-19): тянется мышкой только пропорционально (как 1120×720), от MinW до MaxW;
+        // содержимое слегка масштабируется вместе с окном (ApplyScale). Стартовый размер — от экрана: ~55% ширины
+        // рабочей области в этих пределах (Full HD → ~1056×679, 2K → 1180×759). «Развернуть» — на весь экран и обратно.
         var wa = SystemParameters.WorkArea;
-        Width = Math.Min(Math.Clamp(wa.Width * 0.55, 960, 1180), wa.Width - 16);
-        Height = Math.Min(Math.Max(Width * 0.645, MinHeight), wa.Height - 16);
-        SourceInitialized += (_, _) => Theme.StyleFrame(new WindowInteropHelper(this).Handle);
+        Width = Math.Min(Math.Clamp(wa.Width * 0.55, MinW, 1180), wa.Width - 16);
+        Height = Math.Min(Width / Aspect, wa.Height - 16);
+        SourceInitialized += (_, _) =>
+        {
+            var h = new WindowInteropHelper(this).Handle;
+            Theme.StyleFrame(h);
+            HwndSource.FromHwnd(h)?.AddHook(SizingHook);
+        };
+        SizeChanged += (_, _) => ApplyScale();
         Theme.Changed += OnTheme;
         StateChanged += (_, _) =>
         {
             // WindowChrome: a maximised window hangs over the screen edge by the resize border
             Root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
+            ApplyScale();
             MaxIcon.Data = Ui.Geo(WindowState == WindowState.Maximized ? "I.Restore" : "I.Max");
         };
         Closing += (_, e) =>
@@ -211,6 +218,44 @@ public partial class MainWindow : Window
 
     void UpdateOpen_Click(object sender, RoutedEventArgs e) => Go("settings_update");
     void UpdateHide_Click(object sender, RoutedEventArgs e) => UpdateBanner.Visibility = Visibility.Collapsed;
+
+    // ── Proportional size ──
+
+    const double DesignW = 1120, DesignH = 720, Aspect = DesignW / DesignH, MinW = 960, MaxW = 1600;
+
+    /// <summary>Чуть крупнее/мельче вместе с окном: половина изменения ширины относительно 1120, в пределах 0.92…1.2.</summary>
+    void ApplyScale()
+    {
+        var w = ActualWidth - Root.Margin.Left - Root.Margin.Right;
+        if (w <= 0) return;
+        var k = Math.Clamp(1 + (w / DesignW - 1) * 0.5, 0.92, 1.2);
+        if (Root.LayoutTransform is ScaleTransform st && Math.Abs(st.ScaleX - k) < 0.005) return;
+        Root.LayoutTransform = Math.Abs(k - 1) < 0.005 ? Transform.Identity : new ScaleTransform(k, k);
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    struct RECT { public int Left, Top, Right, Bottom; }
+
+    /// <summary>WM_SIZING: держит пропорции окна и пределы MinW…MaxW (и не больше рабочей области).</summary>
+    IntPtr SizingHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_SIZING = 0x0214;
+        if (msg != WM_SIZING) return IntPtr.Zero;
+        var r = System.Runtime.InteropServices.Marshal.PtrToStructure<RECT>(lParam);
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var edge = wParam.ToInt32();   // 1 L, 2 R, 3 T, 4 TL, 5 TR, 6 B, 7 BL, 8 BR
+        double w = r.Right - r.Left, h = r.Bottom - r.Top;
+        if (edge is 3 or 6) w = h * Aspect;
+        var wa = SystemParameters.WorkArea;
+        var max = Math.Min(MaxW * dpi.DpiScaleX, Math.Min(wa.Width * dpi.DpiScaleX, wa.Height * dpi.DpiScaleY * Aspect));
+        w = Math.Clamp(w, MinW * dpi.DpiScaleX, Math.Max(max, MinW * dpi.DpiScaleX));
+        h = w / Aspect;
+        if (edge is 1 or 4 or 7) r.Left = r.Right - (int)Math.Round(w); else r.Right = r.Left + (int)Math.Round(w);
+        if (edge is 3 or 4 or 5) r.Top = r.Bottom - (int)Math.Round(h); else r.Bottom = r.Top + (int)Math.Round(h);
+        System.Runtime.InteropServices.Marshal.StructureToPtr(r, lParam, false);
+        handled = true;
+        return (IntPtr)1;
+    }
 
     // ── Window buttons ──
 
