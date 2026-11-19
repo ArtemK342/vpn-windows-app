@@ -28,9 +28,9 @@ public partial class MainWindow : Window
         Title = Brand.Title;
         // Размер окна (юзер 2026-11-19): тянется мышкой только пропорционально (как 1120×720), от MinW до MaxW;
         // содержимое слегка масштабируется вместе с окном (ApplyScale). Стартовый размер — от экрана: ~55% ширины
-        // рабочей области в этих пределах (Full HD → ~1056×679, 2K → 1180×759). «Развернуть» — на весь экран и обратно.
+        // рабочей области, не больше 1120 (Full HD → 960×617, 2K → 1120×720). «Развернуть» — на весь экран и обратно.
         var wa = SystemParameters.WorkArea;
-        Width = Math.Min(Math.Clamp(wa.Width * 0.55, MinW, 1180), wa.Width - 16);
+        Width = Math.Min(Math.Clamp(wa.Width * 0.5, MinW, 1120), wa.Width - 16);
         Height = Math.Min(Width / Aspect, wa.Height - 16);
         SourceInitialized += (_, _) =>
         {
@@ -221,14 +221,17 @@ public partial class MainWindow : Window
 
     // ── Proportional size ──
 
-    const double DesignW = 1120, DesignH = 720, Aspect = DesignW / DesignH, MinW = 960, MaxW = 1600;
+    const double DesignW = 1120, DesignH = 720, Aspect = DesignW / DesignH, MinW = 800, MaxW = 1320;   // юзер: меньше и не так крупно
 
-    /// <summary>Чуть крупнее/мельче вместе с окном: половина изменения ширины относительно 1120, в пределах 0.92…1.2.</summary>
+    /// <summary>
+    /// Чуть крупнее/мельче вместе с окном: половина изменения ширины относительно 1120 (не больше 1.12); в узком окне —
+    /// сколько нужно, чтобы вёрстке оставалось ≥ 960 (две колонки главного экрана), но не меньше 0.8.
+    /// </summary>
     void ApplyScale()
     {
         var w = ActualWidth - Root.Margin.Left - Root.Margin.Right;
         if (w <= 0) return;
-        var k = Math.Clamp(1 + (w / DesignW - 1) * 0.5, 0.92, 1.2);
+        var k = Math.Clamp(Math.Min(1 + (w / DesignW - 1) * 0.5, w / 960), 0.8, 1.12);
         if (Root.LayoutTransform is ScaleTransform st && Math.Abs(st.ScaleX - k) < 0.005) return;
         Root.LayoutTransform = Math.Abs(k - 1) < 0.005 ? Transform.Identity : new ScaleTransform(k, k);
     }
