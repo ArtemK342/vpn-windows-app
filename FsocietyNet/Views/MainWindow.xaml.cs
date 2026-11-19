@@ -26,6 +26,11 @@ public partial class MainWindow : Window
         Instance = this;
         InitializeComponent();
         Title = Brand.Title;
+        // Фиксированный размер, как у других VPN (юзер 2026-11-19): 1180×760, растягивать и разворачивать нельзя.
+        // На маленьком экране (ноутбук 1366×768) — не больше рабочей области, содержимое прокручивается.
+        var wa = SystemParameters.WorkArea;
+        if (Width > wa.Width - 16) Width = Math.Max(MinWidth, wa.Width - 16);
+        if (Height > wa.Height - 16) Height = Math.Max(MinHeight, wa.Height - 16);
         SourceInitialized += (_, _) => Theme.StyleFrame(new WindowInteropHelper(this).Handle);
         Theme.Changed += OnTheme;
         StateChanged += (_, _) =>

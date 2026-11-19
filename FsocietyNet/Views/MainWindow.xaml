@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="clr-namespace:FsocietyNet.Views"
-        Title="FsocietyNet" Width="1120" Height="720" MinWidth="940" MinHeight="620"
-        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
+        Title="FsocietyNet" Width="1180" Height="760" MinWidth="940" MinHeight="620"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanMinimize"
         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
         FontFamily="{StaticResource UiFont}" FontSize="13.5"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
@@ -11,7 +11,7 @@
         Icon="pack://application:,,,/Assets/app.ico">
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="44" ResizeBorderThickness="6" GlassFrameThickness="0,0,0,1"
+        <WindowChrome CaptionHeight="44" ResizeBorderThickness="0" GlassFrameThickness="0,0,0,1"
                       CornerRadius="0" UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -110,7 +110,7 @@
             <Button Style="{StaticResource Btn.Chrome}" Click="Min_Click" ToolTip="{v:T win.min}">
                 <v:Icon Data="{StaticResource I.Min}" Size="15" Stroke="1.5"/>
             </Button>
-            <Button Style="{StaticResource Btn.Chrome}" Click="Max_Click">
+            <Button Style="{StaticResource Btn.Chrome}" Click="Max_Click" Visibility="Collapsed">
                 <v:Icon x:Name="MaxIcon" Data="{StaticResource I.Max}" Size="13" Stroke="1.6"/>
             </Button>
             <Button Style="{StaticResource Btn.ChromeClose}" Click="Close_Click" ToolTip="{v:T win.close}">
