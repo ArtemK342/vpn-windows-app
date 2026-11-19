@@ -10,11 +10,29 @@ using Microsoft.Win32;
 
 namespace FsocietyNet.Services;
 
+/// <summary>
+/// Имя программы в системе. Дев-сборка (build.ps1 -Dev, константа DEV; юзер 2026-11-19 — «как на Android») ставится
+/// рядом с обычной: свои папки настроек и туннеля, служба, автозапуск, запись в «Приложениях», ярлык «FsocietyNet DEV».
+/// Общие с обычной: служба zapret и аккаунт на сервере. Одновременно подключать VPN в обеих не нужно.
+/// </summary>
+public static class Brand
+{
+#if DEV
+    public const string Id = "FsocietyNet-Dev";
+    public const string Title = "FsocietyNet DEV";
+    public const bool Dev = true;
+#else
+    public const string Id = "FsocietyNet";
+    public const string Title = "FsocietyNet";
+    public const bool Dev = false;
+#endif
+}
+
 public static class Paths
 {
     /// <summary>%AppData%\FsocietyNet — settings, session (DPAPI), journal. Per user.</summary>
     public static readonly string UserDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FsocietyNet");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Brand.Id);
 
     /// <summary>
     /// %ProgramData%\FsocietyNet — VPN binaries and tunnel configs. Run as SYSTEM (tunnel service) or admin, so
@@ -22,7 +40,7 @@ public static class Paths
     /// could have swapped amneziawg.exe and got it started as a SYSTEM service.
     /// </summary>
     public static readonly string MachineDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "FsocietyNet");
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Brand.Id);
     public static string BinDir => Path.Combine(MachineDir, "bin");
     public static string RunDir => Path.Combine(MachineDir, "run");
 

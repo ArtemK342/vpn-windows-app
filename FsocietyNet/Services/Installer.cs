@@ -13,12 +13,12 @@ namespace FsocietyNet.Services;
 /// </summary>
 public static class Installer
 {
-    const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\FsocietyNet";
-    public const string ExeName = "FsocietyNet.exe";
+    const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\" + Brand.Id;
+    public const string ExeName = Brand.Id + ".exe";
 
-    public static string DefaultDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "FsocietyNet");
-    static string StartMenuLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "FsocietyNet.lnk");
-    static string DesktopLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "FsocietyNet.lnk");
+    public static string DefaultDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), Brand.Id);
+    static string StartMenuLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), Brand.Title + ".lnk");
+    static string DesktopLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), Brand.Title + ".lnk");
 
     static RegistryKey Hklm => RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
 
@@ -58,7 +58,7 @@ public static class Installer
     {
         var d = chosen.Trim().TrimEnd('\\');
         if (d.Length == 0) return DefaultDir;
-        return Path.GetFileName(d).Equals("FsocietyNet", StringComparison.OrdinalIgnoreCase) ? d : Path.Combine(d, "FsocietyNet");
+        return Path.GetFileName(d).Equals(Brand.Id, StringComparison.OrdinalIgnoreCase) ? d : Path.Combine(d, Brand.Id);
     }
 
     /// <summary>
@@ -84,11 +84,11 @@ public static class Installer
     /// <summary>The installed app (if running) quits — it disconnects the VPN on the way out; older builds are closed.</summary>
     public static async Task StopRunning()
     {
-        bool Others() => Process.GetProcessesByName("FsocietyNet").Any(p => p.Id != Environment.ProcessId);
+        bool Others() => Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName).Any(p => p.Id != Environment.ProcessId);
         if (!Others()) return;
-        try { if (EventWaitHandle.TryOpenExisting(@"Local\FsocietyNet.Quit", out var quit)) { quit.Set(); quit.Dispose(); } } catch { }
+        try { if (EventWaitHandle.TryOpenExisting($@"Local\{Brand.Id}.Quit", out var quit)) { quit.Set(); quit.Dispose(); } } catch { }
         for (int i = 0; i < 30 && Others(); i++) await Task.Delay(500);
-        foreach (var p in Process.GetProcessesByName("FsocietyNet").Where(p => p.Id != Environment.ProcessId))
+        foreach (var p in Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName).Where(p => p.Id != Environment.ProcessId))
             try { p.Kill(true); p.WaitForExit(5000); } catch { }
     }
 
@@ -111,7 +111,7 @@ public static class Installer
 
         using (var k = Hklm.CreateSubKey(UninstallKey))
         {
-            k.SetValue("DisplayName", "FsocietyNet");
+            k.SetValue("DisplayName", Brand.Title);
             k.SetValue("DisplayVersion", App.Version);
             k.SetValue("Publisher", "fsociety");
             k.SetValue("DisplayIcon", $"\"{exe}\",0");
@@ -141,7 +141,7 @@ public static class Installer
             s.TargetPath = exe;
             s.WorkingDirectory = Path.GetDirectoryName(exe);
             s.IconLocation = exe + ",0";
-            s.Description = "FsocietyNet VPN";
+            s.Description = Brand.Title + " VPN";
             s.Save();
         }
         catch (Exception e) { Log.E("shortcut", e); }
@@ -177,7 +177,7 @@ public static class Installer
         if (removeUserData) try { Directory.Delete(Paths.UserDir, true); } catch { }
 
         // The running exe cannot delete itself: cmd removes the folder after this process has exited
-        if (dir.Length > 3 && Path.GetFileName(dir).Equals("FsocietyNet", StringComparison.OrdinalIgnoreCase))
+        if (dir.Length > 3 && Path.GetFileName(dir).Equals(Brand.Id, StringComparison.OrdinalIgnoreCase))
         {
             var psi = new ProcessStartInfo("cmd.exe", $"/c timeout /t 3 /nobreak >nul & rmdir /s /q \"{dir}\"")
             { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetTempPath() };

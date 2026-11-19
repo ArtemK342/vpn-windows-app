@@ -43,3 +43,4 @@ FsocietyNet/Resources/sing-box.zip
 FsocietyNet/Resources/byedpi.zip
 FsocietyNet/Resources/zapret.zip
 *.tmp
+out-dev/

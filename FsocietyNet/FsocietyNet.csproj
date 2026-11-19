@@ -27,6 +27,13 @@
     <DefineConstants>$(DefineConstants);PREVIEW</DefineConstants>
   </PropertyGroup>
 
+  <!-- Dev build (build.ps1 -Dev): own name in the system (Brand.Id = FsocietyNet-Dev) — installs next to the release,
+       own settings, tunnel service, autostart, «Apps» entry and «FsocietyNet DEV» shortcut; no GitHub updates. -->
+  <PropertyGroup Condition="'$(Dev)'=='true'">
+    <DefineConstants>$(DefineConstants);DEV</DefineConstants>
+    <AssemblyName>FsocietyNet-Dev</AssemblyName>
+  </PropertyGroup>
+
   <!-- Remove conflicting implicit usings that clash between WPF and WinForms -->
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />

@@ -597,7 +597,7 @@ public sealed partial class SettingsView : UserControl
             return b;
         }
         p.Children.Add(Card(Rows(
-            Info(Loc.Get("update.current"), $"FsocietyNet {App.Version}"),
+            Info(Loc.Get("update.current"), $"{Brand.Title} {App.Version}"),
             Info("AmneziaWG", "2.0.0"),
             Info("sing-box", Binaries.Embedded(Binaries.SingBox) ? "1.14.4" : Loc.Get("about.missing")),
             Info("ByeDPI", Binaries.Embedded(Binaries.CiaDpi) ? "17.3" : Loc.Get("about.missing")))));

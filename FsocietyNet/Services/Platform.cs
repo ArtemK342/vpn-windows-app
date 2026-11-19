@@ -70,7 +70,7 @@ public static class Tray
     {
         var m = new System.Windows.Controls.ContextMenu();
         // Header: name and version, greyed like in other tray apps
-        m.Items.Add(new System.Windows.Controls.MenuItem { Header = $"FsocietyNet {App.Version}", IsEnabled = false });
+        m.Items.Add(new System.Windows.Controls.MenuItem { Header = $"{Brand.Title} {App.Version}", IsEnabled = false });
         m.Items.Add(new System.Windows.Controls.Separator());
         m.Items.Add(Item(Loc.Get("tray.open"), "I.Home", () => OpenRequested?.Invoke()));
         m.Items.Add(Vpn.Status switch
@@ -126,14 +126,14 @@ public static class Tray
             VpnStatus.Blocked => Loc.Get("tray.blocked"),
             _ => Loc.Get("tray.disconnected")
         };
-        _icon.Text = ("FsocietyNet · " + text) is var t && t.Length > 63 ? t[..63] : t;
+        _icon.Text = (Brand.Title + " · " + text) is var t && t.Length > 63 ? t[..63] : t;
     }
 
     /// <summary>Balloon only when the window is hidden (otherwise the app shows the state itself).</summary>
     public static void Notify(string text)
     {
         if (_icon == null || WindowVisible?.Invoke() == true) return;
-        try { _icon.ShowBalloonTip(3500, "FsocietyNet", text, WinForms.ToolTipIcon.None); } catch { }
+        try { _icon.ShowBalloonTip(3500, Brand.Title, text, WinForms.ToolTipIcon.None); } catch { }
     }
 
     public static void Dispose()
@@ -150,7 +150,7 @@ public static class Tray
 /// <summary>Start with Windows: a scheduled task «at logon, highest privileges» — no UAC prompt at every login.</summary>
 public static class Autostart
 {
-    const string TaskName = "FsocietyNet";
+    const string TaskName = Brand.Id;
 
     /// <param name="exePath">The installed exe (the installer passes it; otherwise this process).</param>
     public static async Task<bool> Set(bool on, string? exePath = null)
@@ -186,7 +186,7 @@ public static class Updates
 
     public static async Task<Info?> Check()
     {
-        if (Api.DemoMode) return null;
+        if (Api.DemoMode || Brand.Dev) return null;   // дев-сборку релизом с GitHub не подменяем
         var json = await Http.GetStringAsync("https://api.github.com/repos/ArtemK342/vpn-windows-app/releases/latest");
         using var doc = JsonDocument.Parse(json);
         var r = doc.RootElement;

@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     {
         Instance = this;
         InitializeComponent();
+        Title = Brand.Title;
         SourceInitialized += (_, _) => Theme.StyleFrame(new WindowInteropHelper(this).Handle);
         Theme.Changed += OnTheme;
         StateChanged += (_, _) =>

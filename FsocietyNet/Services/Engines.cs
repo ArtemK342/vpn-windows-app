@@ -171,7 +171,7 @@ public static class Net
 /// </summary>
 public sealed class AwgEngine : IEngine
 {
-    public const string TunnelName = "FsocietyNet";
+    public const string TunnelName = Brand.Id;
     const string ServiceName = "AmneziaWGTunnel$" + TunnelName;
     public string Kind => "wireguard";
     static string ConfPath => Path.Combine(Paths.RunDir, TunnelName + ".conf");
@@ -416,7 +416,7 @@ public sealed class SingBoxEngine : IEngine
         {
             new JsonObject
             {
-                ["type"] = "tun", ["tag"] = "tun-in", ["interface_name"] = "FsocietyNet",
+                ["type"] = "tun", ["tag"] = "tun-in", ["interface_name"] = Brand.Id,
                 ["address"] = new JsonArray("172.19.0.1/30"), ["mtu"] = 9000,
                 ["auto_route"] = true, ["strict_route"] = true, ["stack"] = "gvisor",
             }

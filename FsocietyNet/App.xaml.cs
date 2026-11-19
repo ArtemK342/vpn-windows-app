@@ -10,7 +10,7 @@ namespace FsocietyNet;
 public partial class App : Application
 {
     public static string Version { get; } =
-        Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.1.0";
+        Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}" : "0.1.0";   // все 4 цифры: «0.0.4» < «0.0.4.0» — предлагал обновиться до себя
 
     static Mutex? _single;
     static EventWaitHandle? _showSignal;
@@ -57,9 +57,9 @@ public partial class App : Application
             return;
         }
 
-        _single = new Mutex(true, @"Local\FsocietyNet.Single", out var first);
-        _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\FsocietyNet.Show");
-        _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\FsocietyNet.Quit");
+        _single = new Mutex(true, $@"Local\{Brand.Id}.Single", out var first);
+        _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, $@"Local\{Brand.Id}.Show");
+        _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, $@"Local\{Brand.Id}.Quit");
         if (!first && args.Contains("--restarted"))
         {
             // Tray → «Restart»: the old copy is quitting — wait for it instead of showing it
@@ -139,7 +139,7 @@ public partial class App : Application
     {
         var self = Environment.ProcessPath ?? "";
         var selfInfo = new FileInfo(self);
-        var others = System.Diagnostics.Process.GetProcessesByName("FsocietyNet").Where(p => p.Id != Environment.ProcessId).ToList();
+        var others = System.Diagnostics.Process.GetProcessesByName(System.Diagnostics.Process.GetCurrentProcess().ProcessName).Where(p => p.Id != Environment.ProcessId).ToList();
         bool Same(System.Diagnostics.Process p)
         {
             try

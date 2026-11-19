@@ -55,7 +55,7 @@ public sealed class InstallerWindow : Window
         root.Children.Add(top);
 
         root.Children.Add(new TextBlock { Text = Loc.Get(uninstall ? "setup.uninstall_label" : "setup.label"), Style = S("T.Label"), Margin = new Thickness(0, 26, 0, 0) });
-        root.Children.Add(new TextBlock { Text = uninstall ? Loc.Get("setup.uninstall_h1") : $"FsocietyNet {App.Version}", Style = S("T.H1"), Margin = new Thickness(0, 8, 0, 0) });
+        root.Children.Add(new TextBlock { Text = uninstall ? Loc.Get("setup.uninstall_h1") : $"{Brand.Title} {App.Version}", Style = S("T.H1"), Margin = new Thickness(0, 8, 0, 0) });
         root.Children.Add(_body);
         root.Children.Add(_error);
 
@@ -200,7 +200,7 @@ public sealed class InstallerWindow : Window
     {
         public static Task Info(Window owner, string text)
         {
-            MessageBox.Show(owner, text, "FsocietyNet", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(owner, text, Brand.Title, MessageBoxButton.OK, MessageBoxImage.Information);
             return Task.CompletedTask;
         }
     }
