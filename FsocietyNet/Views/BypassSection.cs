@@ -17,16 +17,29 @@ public sealed partial class SettingsView
     {
         var p = Page(Loc.Get("bypass.title"), Loc.Get("bypass.desc"));
         var zapretPanel = new StackPanel();
-        var zapret = St.BypassEngine != "byedpi";
-        p.Children.Add(Options("engine", new[]
+        var zapret = Zapret.UsesZapret;
+        var engines = new List<(string, string, string)>
         {
             ("zapret", Loc.Get("bypass.engine_zapret"), Loc.Get("bypass.engine_zapret_desc")),
             ("byedpi", Loc.Get("bypass.engine_byedpi"), Loc.Get("bypass.engine_byedpi_desc")),
-        }, zapret ? "zapret" : "byedpi", async v =>
+        };
+        // «Отключить» — пока только в дев-версии (юзер 2026-11-19)
+        if (Brand.Dev) engines.Add(("off", Loc.Get("bypass.engine_off"), Loc.Get("bypass.engine_off_desc")));
+        var current = Zapret.BypassOff && Brand.Dev ? "off" : zapret ? "zapret" : "byedpi";
+        p.Children.Add(Options("engine", engines.ToArray(), current, async v =>
         {
             St.BypassEngine = v;
             AppSettings.Save();
             zapretPanel.Visibility = v == "zapret" ? Visibility.Visible : Visibility.Collapsed;
+            if (v == "off")
+            {
+                // Ничего не удаляем и службы не трогаем (у zapret от Flowseal служба тоже «zapret»): только «через
+                // список серверов», чтобы наш режим «всегда» не считался включённым
+                St.BypassMode = "server";
+                AppSettings.Save();
+                Zapret.NotifyModeChanged();
+                return;
+            }
             if (v == "byedpi" && St.BypassMode == "system")
             {
                 // ByeDPI only works from the server list: a zapret service would keep running unseen

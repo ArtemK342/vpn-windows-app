@@ -72,7 +72,16 @@ public static class Zapret
 
     /// <summary>«Always, for the whole system»: the zapret service does the bypass, the server row is hidden.</summary>
     public static bool SystemMode =>
-        AppSettings.Current.BypassMode == "system" && AppSettings.Current.BypassEngine != "byedpi" && Embedded;
+        AppSettings.Current.BypassMode == "system" && UsesZapret && Embedded;
+
+    /// <summary>Обход через наш zapret (не ByeDPI и не «Отключить»).</summary>
+    public static bool UsesZapret => AppSettings.Current.BypassEngine is not ("byedpi" or "off");
+
+    /// <summary>
+    /// «Отключить» (дев-версия, юзер 2026-11-19: свой zapret из bin-файла): строки «Обход» в списке серверов и строка
+    /// статуса обхода скрыты. Ничего не удаляется и службы не трогаются — у zapret от Flowseal служба тоже «zapret».
+    /// </summary>
+    public static bool BypassOff => AppSettings.Current.BypassEngine == "off";
 
     /// <summary>Bypass mode / service changed in Settings: the home screen updates its list and status line.</summary>
     public static event Action? ModeChanged;

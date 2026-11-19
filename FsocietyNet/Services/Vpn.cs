@@ -104,7 +104,9 @@ public static class Vpn
                     engine = sb;
                     break;
                 }
-                case "bypass" when AppSettings.Current.BypassEngine != "byedpi" && Zapret.Embedded:
+                case "bypass" when Zapret.BypassOff:
+                    throw new UserError(Loc.Get("home.bypass_off"));   // обход выключен в Настройках (дев)
+                case "bypass" when Zapret.UsesZapret && Zapret.Embedded:
                 {
                     var z = new ZapretEngine();
                     await z.Start(AppSettings.Current.ZapretStrategy);

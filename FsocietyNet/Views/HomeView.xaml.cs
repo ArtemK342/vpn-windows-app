@@ -147,7 +147,7 @@ public partial class HomeView : UserControl
             var pings = _rows.ToDictionary(r => r.S.id, r => r.Ping);
             _rows.Clear();
             // «Always» bypass mode: the zapret service works by itself, the «Обход» row would only confuse
-            foreach (var s in list.Where(s => (s.status != "hidden" || s.connectable) && !(s.IsBypass && Zapret.SystemMode)))
+            foreach (var s in list.Where(s => (s.status != "hidden" || s.connectable) && !(s.IsBypass && (Zapret.SystemMode || Zapret.BypassOff))))
                 _rows.Add(new ServerRow(s) { Ping = pings.GetValueOrDefault(s.id) });
             ApplyFilter();
             _ = PingAll();
@@ -321,7 +321,7 @@ public partial class HomeView : UserControl
             else if (srv.server_type == "wireguard" && s.SitesActive && s.Sites.Any(Rules.IsZone)) note = Loc.Get("home.rules_zone_awg");
         }
         if (srv?.IsBypass == true && on)
-            note = (note == null ? "" : note + "\n") + Loc.Get(Vpn.EngineKind == "bypass" && AppSettings.Current.BypassEngine != "byedpi" && Zapret.Embedded
+            note = (note == null ? "" : note + "\n") + Loc.Get(Vpn.EngineKind == "bypass" && Zapret.UsesZapret && Zapret.Embedded
                 ? "home.bypass_note_zapret" : "home.bypass_note");
         NoteText.Text = note ?? "";
         NoteText.Visibility = note == null ? Visibility.Collapsed : Visibility.Visible;
