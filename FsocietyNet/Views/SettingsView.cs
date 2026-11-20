@@ -608,6 +608,8 @@ public sealed partial class SettingsView : UserControl
         links.Children.Add(Link("Telegram", "https://t.me/reich_kanzlei"));
         p.Children.Add(links);
         p.Children.Add(Note(Loc.Get("about.note"), 18));
+        // Есть похожие сервисы с тем же названием (2026-11) — называем официальный сайт
+        p.Children.Add(Note(Loc.Get("about.official"), 10));
         return p;
     }
 }
