@@ -18,7 +18,7 @@
                 </Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold" VerticalAlignment="Center">
-                        <Run Text="[" Foreground="{DynamicResource MutedBrush}"/><Run Text="f" Foreground="{DynamicResource AccentTextBrush}"/><Run Text="]society"/>
+                        <Run Text="[f]" Foreground="{DynamicResource AccentTextBrush}"/><Run Text="society"/>
                     </TextBlock>
                 </StackPanel>
 

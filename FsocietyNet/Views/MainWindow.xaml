@@ -34,7 +34,7 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="26,6,0,0">
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="18" FontWeight="Bold">
-                            <Run Text="[" Foreground="{DynamicResource MutedBrush}"/><Run Text="f" Foreground="{DynamicResource AccentTextBrush}"/><Run Text="]society" Foreground="{DynamicResource TextBrush}"/>
+                            <Run Text="[f]" Foreground="{DynamicResource AccentTextBrush}"/><Run Text="society" Foreground="{DynamicResource TextBrush}"/>
                         </TextBlock>
                         <TextBlock x:Name="SideSub" Text="VPN · Windows" Style="{StaticResource T.Caps}" Margin="0,2,0,0"/>
                     </StackPanel>
