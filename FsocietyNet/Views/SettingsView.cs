@@ -206,7 +206,7 @@ public sealed partial class SettingsView : UserControl
             {
                 void Err(string t) { msg.Text = t; msg.Foreground = Ui.Res("DangerBrush"); }
                 if (oldP.Password.Length == 0 || newP.Password.Length == 0) { Err(Loc.Get("login.error_empty")); return; }
-                if (newP.Password.Length < 8) { Err(Loc.Get("register.error_length")); return; }
+                if (!Session.PasswordRulesOk(newP.Password)) { Err(Loc.Get("register.error_length")); return; }
                 if (newP.Password != repP.Password) { Err(Loc.Get("register.error_mismatch")); return; }
                 ((Button)s).IsEnabled = false;
                 try

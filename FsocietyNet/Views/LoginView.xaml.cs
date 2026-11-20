@@ -165,7 +165,7 @@ public partial class LoginView : UserControl
         var email = RegEmail.Text.Trim();
         if (email.Length == 0 || RegPassword.Password.Length == 0) { SetError(Loc.Get("login.error_empty")); return; }
         if (!Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$")) { SetError(Loc.Get("forgot.bad_email")); return; }
-        if (RegPassword.Password.Length < 8) { SetError(Loc.Get("register.error_length")); return; }
+        if (!Session.PasswordRulesOk(RegPassword.Password)) { SetError(Loc.Get("register.error_length")); return; }
         if (RegPassword.Password != RegPassword2.Password) { SetError(Loc.Get("register.error_mismatch")); return; }
         if (Accept.IsChecked != true) { SetError(Loc.Get("privacy.must_accept")); return; }
         RegBtn.IsEnabled = false;

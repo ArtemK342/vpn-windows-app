@@ -262,6 +262,13 @@ public static class Log
 /// <summary>Access / refresh tokens and the cached profile, encrypted with DPAPI for this Windows user.</summary>
 public static class Session
 {
+    /// <summary>
+    /// Rules for a new password — as on the server (vpn-site api/password_policy.py): 8–128 characters, an uppercase
+    /// and a lowercase letter (any alphabet). Popular passwords are rejected by the server only (its text is shown).
+    /// </summary>
+    public static bool PasswordRulesOk(string p) =>
+        p.Length is >= 8 and <= 128 && p.Any(char.IsUpper) && p.Any(char.IsLower);
+
     static readonly string FilePath = Path.Combine(Paths.UserDir, "session.bin");
     record Stored(string access, string refresh, UserResponse? me, SubscriptionResponse? sub = null, bool subKnown = false);
 
