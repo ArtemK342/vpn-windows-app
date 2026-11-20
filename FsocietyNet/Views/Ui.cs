@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Documents;
@@ -178,21 +178,24 @@ public sealed class Flag : FrameworkElement
 public enum BrandState { Normal, Connected, Off, Busy, Blocked }
 
 /// <summary>
-/// App / tray icon: the Android launcher picture (Assets/logo.png, 512 px) cut to its circle. Every icon frame
-/// (16…256) is scaled straight from the 512 px original with a high-quality bicubic filter at its exact size —
-/// Windows does not shrink one bitmap. Tray states add a coloured dot.
+/// App / tray icon: the mask logo (Assets/logo.png, 512 px; brand 2026-11-20) cut to its circle. Frames up to 32 px
+/// use Assets/logo-small.png — the same mask with thicker lines, so the tray icon stays readable. Every frame is
+/// scaled straight from the 512 px original with a high-quality bicubic filter at its exact size. Tray states add
+/// a coloured dot.
 /// </summary>
 public static class BrandMark
 {
-    static Drawing.Bitmap? _src;
+    static Drawing.Bitmap? _src, _small;
 
-    static Drawing.Bitmap Source()
+    static Drawing.Bitmap Load(string name)
     {
-        if (_src != null) return _src;
-        using var s = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/logo.png")).Stream;
+        using var s = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/" + name)).Stream;
         using var tmp = new Drawing.Bitmap(s);
-        return _src = new Drawing.Bitmap(tmp);   // copy: the stream is closed
+        return new Drawing.Bitmap(tmp);   // copy: the stream is closed
     }
+
+    static Drawing.Bitmap Source(int px) =>
+        px <= 32 ? (_small ??= Load("logo-small.png")) : (_src ??= Load("logo.png"));
 
     /// <summary>Logo of px×px, round, premultiplied BGRA.</summary>
     static BitmapSource Logo(int px)
@@ -205,7 +208,7 @@ public static class BrandMark
             g.CompositingQuality = Drawing.Drawing2D.CompositingQuality.HighQuality;
             using var attrs = new Drawing.Imaging.ImageAttributes();
             attrs.SetWrapMode(Drawing.Drawing2D.WrapMode.TileFlipXY);   // no dark fringe at the edges
-            var src = Source();
+            var src = Source(px);
             g.DrawImage(src, new Drawing.Rectangle(0, 0, px, px), 0, 0, src.Width, src.Height, Drawing.GraphicsUnit.Pixel, attrs);
         }
         using var round = new Drawing.Bitmap(px, px, Drawing.Imaging.PixelFormat.Format32bppPArgb);
