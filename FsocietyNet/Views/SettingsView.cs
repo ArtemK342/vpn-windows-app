@@ -515,9 +515,11 @@ public sealed partial class SettingsView : UserControl
             ("max", Loc.Get("log.max"), Loc.Get("log.max_desc")),
         }, St.LogLevel, v =>
         {
+            var was = St.LogLevel;
             St.LogLevel = v;
             AppSettings.Save();
-            if (v == "off") Log.Clear(); else Log.I(Log.Header());
+            // Header only when the journal starts (off → min/max), not on every min ↔ max switch
+            if (v == "off") Log.Clear(); else if (was == "off" || Log.Size == 0) Log.I(Log.Header());
             UpdateSize();
         }));
         UpdateSize();
