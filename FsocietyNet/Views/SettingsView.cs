@@ -607,7 +607,7 @@ public sealed partial class SettingsView : UserControl
         links.Children.Add(Link(Loc.Get("privacy.policy_title"), LoginView.LegalUrl("privacy")));
         links.Children.Add(Link(Loc.Get("privacy.terms_title"), LoginView.LegalUrl("terms")));
         links.Children.Add(Link("fsociety-vpn.org", Api.Site));
-        links.Children.Add(Link("Telegram", "https://t.me/reich_kanzlei"));
+        links.Children.Add(Link("Telegram", "https://t.me/fsocietynet_vpn"));
         p.Children.Add(links);
         p.Children.Add(Note(Loc.Get("about.note"), 18));
         // Есть похожие сервисы с тем же названием (2026-11) — называем официальный сайт

@@ -10,7 +10,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>0.0.4.2</Version>
+    <Version>0.0.4.3</Version>
     <Product>FsocietyNet</Product>
     <Company>fsociety</Company>
     <Copyright>fsociety-vpn.org</Copyright>

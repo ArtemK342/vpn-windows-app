@@ -36,7 +36,7 @@ public sealed class SupportView : UserControl
         titles.Children.Add(new TextBlock { Text = Loc.Get("support.title"), Style = S("T.H1"), Margin = new Thickness(0, 8, 0, 0) });
         head.Children.Add(titles);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom };
-        var tg = Dialogs.Btn(Loc.Get("support.telegram"), "Btn.Ghost", (_, _) => Updates.Open("https://t.me/reich_kanzlei"));
+        var tg = Dialogs.Btn(Loc.Get("support.telegram"), "Btn.Ghost", (_, _) => Updates.Open("https://t.me/fsocietynet_agent?start=support"));
         actions.Children.Add(tg);
         var create = Dialogs.Btn(Loc.Get("support.new"), "Btn.Primary", async (_, _) => await Create());
         create.Margin = new Thickness(8, 0, 0, 0);
