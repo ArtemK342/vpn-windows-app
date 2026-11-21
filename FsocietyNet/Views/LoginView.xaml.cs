@@ -197,7 +197,7 @@ public partial class LoginView : UserControl
 
     void Privacy_Click(object sender, RoutedEventArgs e) => Updates.Open(LegalUrl("privacy"));
     void Terms_Click(object sender, RoutedEventArgs e) => Updates.Open(LegalUrl("terms"));
-    void Telegram_Click(object sender, RoutedEventArgs e) => Updates.Open("https://t.me/fsocietynet_vpn");
+    void Telegram_Click(object sender, RoutedEventArgs e) => Updates.Open("https://t.me/fsocietynet_agent?start=support");
 
     void Lang_Click(object sender, RoutedEventArgs e)
     {
