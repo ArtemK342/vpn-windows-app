@@ -155,6 +155,8 @@ public static class Installer
     public static async Task Uninstall(bool removeUserData)
     {
         await StopRunning();
+        TunnelGuard.Detect();
+        TunnelGuard.Disarm();
         try { await AwgEngine.Cleanup(); } catch { }
         Proc.KillOurs("sing-box.exe");
         Proc.KillOurs("ciadpi.exe");

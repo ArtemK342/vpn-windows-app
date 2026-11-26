@@ -196,11 +196,10 @@ public sealed class AwgEngine : IEngine
         var s = AppSettings.Current;
         var cfg = privateKey == null ? raw : raw.Replace("CLIENT_PRIVATE_KEY", privateKey);
 
-        // AllowedIPs. Exactly 0.0.0.0/0 turns on the tunnel service's own «block untunneled traffic» (kill switch);
-        // 0.0.0.0/1 + 128.0.0.0/1 routes the same but without the block.
+        // The app owns the persistent WFP policy. The two /1 routes avoid a separate service-owned policy.
         List<string> allowed;
         string? note = null;
-        if (s.SitesActive && s.SitesMode == "include")
+        if (!s.KillSwitch && s.SitesActive && s.SitesMode == "include")
         {
             allowed = await Rules.ResolveToCidrs(s.Sites);
             allowed.Add(Net.DnsIp + "/32");   // DNS of the tunnel goes through it too
@@ -209,10 +208,10 @@ public sealed class AwgEngine : IEngine
         else
         {
             var exclude = new List<string>();
-            if (s.AllowLan) exclude.AddRange(Cidr.Private);
-            if (s.SitesActive) exclude.AddRange(await Rules.ResolveToCidrs(s.Sites));
+            if (!s.KillSwitch && s.AllowLan) exclude.AddRange(Cidr.Private);
+            if (!s.KillSwitch && s.SitesActive) exclude.AddRange(await Rules.ResolveToCidrs(s.Sites));
             if (exclude.Count == 0)
-                allowed = s.KillSwitch ? ["0.0.0.0/0"] : ["0.0.0.0/1", "128.0.0.0/1"];
+                allowed = ["0.0.0.0/1", "128.0.0.0/1"];
             else
                 allowed = Cidr.Subtract(["0.0.0.0/0"], exclude);
         }
@@ -233,6 +232,15 @@ public sealed class AwgEngine : IEngine
         var exe = Exe;
         Binaries.Get(Binaries.Wintun);   // next to amneziawg.exe (the driver DLL)
         Paths.SecureMachineDirs();
+        if (AppSettings.Current.KillSwitch)
+        {
+            var match = Regex.Match(config, @"(?im)^\s*Endpoint\s*=\s*([^\r\n]+)");
+            if (!match.Success) throw new EngineException("err.killswitch");
+            var uri = new Uri("udp://" + match.Groups[1].Value.Trim());
+            var peer = new IPEndPoint(await TunnelGuard.ResolvePeer(uri.Host), uri.Port);
+            config = config.Remove(match.Groups[1].Index, match.Groups[1].Length).Insert(match.Groups[1].Index, peer.ToString());
+            TunnelGuard.Arm(peer.Address, checked((ushort)peer.Port), 17, exe, kernelPeer: true);
+        }
         await File.WriteAllTextAsync(ConfPath, config);
         if (ServiceExists()) { await Proc.Run(exe, $"/uninstalltunnelservice {TunnelName}"); await Task.Delay(400); }
         var (code, output) = await Proc.Run(exe, $"/installtunnelservice \"{ConfPath}\"");
@@ -245,20 +253,30 @@ public sealed class AwgEngine : IEngine
         {
             await Task.Delay(500);
             var st = await Uapi();
-            if (st.handshake > 0) { Log.I("awg handshake ok"); return; }
+            if (st.handshake > 0) { await TunnelGuard.AllowTunnel(); Log.I("awg handshake ok"); return; }
         }
-        await Stop();
+        if (!TunnelGuard.Armed) await Stop();
         throw new EngineException("home.error_server_unreachable");
     }
 
     public bool Alive() => ServiceRunning();
 
+    DateTimeOffset _lastStatusRead = DateTimeOffset.UtcNow;
+
     public async Task<bool> Healthy()
     {
         var st = await Uapi();
-        if (st.handshake == 0) return false;
+        var now = DateTimeOffset.UtcNow;
+        if (st.handshake == 0)
+        {
+            Log.D("awg monitor: UAPI did not return a handshake");
+            return now - _lastStatusRead < TimeSpan.FromSeconds(30);
+        }
+        _lastStatusRead = now;
         // Keepalive every 25 s renews the handshake every ~2 min; 3.5 min without one = the link is dead
-        return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - st.handshake < 210;
+        var age = now.ToUnixTimeSeconds() - st.handshake;
+        if (age >= 210) Log.I($"awg monitor: handshake age {age}s, rx {st.rx}, tx {st.tx}");
+        return age < 210;
     }
 
     public async Task<(long rx, long tx)> Traffic() { var st = await Uapi(); return (st.rx, st.tx); }
@@ -283,7 +301,7 @@ public sealed class AwgEngine : IEngine
         {
             try { await Proc.Run(Exe, $"/installtunnelservice \"{ConfPath}\""); } catch { return false; }
         }
-        for (int i = 0; i < 16; i++) { await Task.Delay(500); if ((await Uapi()).handshake > 0) return true; }
+        for (int i = 0; i < 16; i++) { await Task.Delay(500); if ((await Uapi()).handshake > 0) { await TunnelGuard.AllowTunnel(); _lastStatusRead = DateTimeOffset.UtcNow; return true; } }
         return false;
     }
 
@@ -440,13 +458,13 @@ public sealed class SingBoxEngine : IEngine
         // (private ranges always go direct by the server's rule, so the LAN option is AmneziaWG-only)
         var final = "proxy";
         var dnsRules = new JsonArray();
-        if (s.AppsActive)
+        if (!s.KillSwitch && s.AppsActive)
         {
             var exclude = s.AppsMode == "exclude";
             rules.Add(new JsonObject { ["process_path_regex"] = ExeRegex(s.Apps.Select(a => a.Exe)), ["outbound"] = exclude ? "direct" : "proxy" });
             if (!exclude) final = "direct";
         }
-        if (s.SitesActive)
+        if (!s.KillSwitch && s.SitesActive)
         {
             var exclude = s.SitesMode == "exclude";
             var matched = exclude ? "direct" : "proxy";
@@ -492,15 +510,29 @@ public sealed class SingBoxEngine : IEngine
         Paths.SecureMachineDirs();
         _apiPort = Proc.FreePort();
         _secret = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16));
-        await File.WriteAllTextAsync(ConfPath, BuildConfig(serverConfig, _apiPort, _secret));
+        var config = BuildConfig(serverConfig, _apiPort, _secret);
+        if (AppSettings.Current.KillSwitch)
+        {
+            var root = JsonNode.Parse(config)!.AsObject();
+            var proxy = root["outbounds"]!.AsArray().Single(outbound => outbound?["tag"]?.GetValue<string>() == "proxy")!;
+            var peer = await TunnelGuard.ResolvePeer(proxy["server"]!.GetValue<string>());
+            var port = checked((ushort)proxy["server_port"]!.GetValue<int>());
+            proxy["server"] = peer.ToString();
+            TunnelGuard.Arm(peer, port, Kind == "hysteria" ? (byte)17 : (byte)6, exe);
+            config = root.ToJsonString();
+        }
+        await File.WriteAllTextAsync(ConfPath, config);
         if (!await Launch(exe)) throw new EngineException("err.singbox_start");
+
+        await TunnelGuard.AllowTunnel();
 
         // Like Android probeThroughProxy: is the server really passing traffic?
         if (!await Probe())
         {
-            await Stop();
+            if (!TunnelGuard.Armed) await Stop();
             throw new EngineException("home.error_server_unreachable");
         }
+        _lastProbe = Environment.TickCount64;
     }
 
     async Task<bool> Launch(string exe)
@@ -565,7 +597,16 @@ public sealed class SingBoxEngine : IEngine
     }
 
     public bool Alive() => _proc is { HasExited: false };
-    public Task<bool> Healthy() => Task.FromResult(Alive());
+    long _lastProbe;
+
+    public async Task<bool> Healthy()
+    {
+        var now = Environment.TickCount64;
+        if (_lastProbe != 0 && now - _lastProbe < 15_000) return true;
+        if (!await Probe()) { Log.I($"{Kind} monitor: both tunnel probes failed"); return false; }
+        _lastProbe = now;
+        return true;
+    }
 
     public async Task<(long rx, long tx)> Traffic()
     {
@@ -585,7 +626,11 @@ public sealed class SingBoxEngine : IEngine
         var exe = Binaries.Get(Binaries.SingBox);
         if (exe == null || !File.Exists(ConfPath)) return false;
         try { _proc?.Kill(true); } catch { }
-        return await Launch(exe) && await Probe();
+        if (!await Launch(exe)) return false;
+        await TunnelGuard.AllowTunnel();
+        if (!await Probe()) return false;
+        _lastProbe = Environment.TickCount64;
+        return true;
     }
 
     public async Task Stop()

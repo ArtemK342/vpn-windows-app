@@ -112,7 +112,7 @@ public sealed partial class SettingsView : UserControl
         return p;
     }
 
-    static Grid Toggle(string title, string desc, bool value, Func<bool, Task> changed)
+    static Grid Toggle(string title, string desc, bool value, Func<bool, Task> changed, Func<bool>? canChange = null)
     {
         var g = new Grid { Margin = new Thickness(0, 14, 0, 14) };
         g.ColumnDefinitions.Add(new ColumnDefinition());
@@ -122,7 +122,18 @@ public sealed partial class SettingsView : UserControl
         t.Children.Add(new TextBlock { Text = desc, Style = S("T.Muted"), Margin = new Thickness(0, 3, 0, 0) });
         g.Children.Add(t);
         var sw = new CheckBox { Style = S("Switch"), IsChecked = value, VerticalAlignment = VerticalAlignment.Center };
-        sw.Click += async (_, _) => { sw.IsEnabled = false; await changed(sw.IsChecked == true); sw.IsEnabled = true; };
+        sw.Click += async (_, _) =>
+        {
+            if (canChange != null && !canChange())
+            {
+                sw.IsChecked = sw.IsChecked != true;
+                Dialogs.Toast(Loc.Get("ks.disconnect_first"));
+                return;
+            }
+            sw.IsEnabled = false;
+            try { await changed(sw.IsChecked == true); }
+            finally { sw.IsEnabled = true; }
+        };
         Grid.SetColumn(sw, 1);
         g.Children.Add(sw);
         return g;
@@ -410,7 +421,12 @@ public sealed partial class SettingsView : UserControl
     {
         var p = Page(Loc.Get("settings.connection"), Loc.Get("settings.connection_desc"));
         p.Children.Add(Card(Rows(
-            Toggle(Loc.Get("ks.title"), Loc.Get("ks.desc"), St.KillSwitch, async v => { St.KillSwitch = v; AppSettings.Save(); await Task.CompletedTask; }),
+            Toggle(Loc.Get("ks.title"), Loc.Get("ks.desc"), St.KillSwitch, v =>
+            {
+                St.KillSwitch = v;
+                AppSettings.Save();
+                return Task.CompletedTask;
+            }, () => Vpn.Status == VpnStatus.Off),
             Toggle(Loc.Get("reconnect.title"), Loc.Get("reconnect.desc"), St.AutoReconnect, async v => { St.AutoReconnect = v; AppSettings.Save(); await Task.CompletedTask; }),
             Toggle(Loc.Get("autostart.title"), Loc.Get("autostart.desc"), St.Autostart, async v =>
             {

@@ -11,7 +11,7 @@ public class UserError : Exception { public UserError(string m) : base(m) { } }
 /// <summary>
 /// Connection state machine for all protocols: access check → config from the API → engine → verification.
 /// Watchdog every 5 s: a dead link is restarted from the local config (up to 3 times); with the kill switch on
-/// an AmneziaWG tunnel is then kept (internet stays blocked) until the user unblocks or reconnects.
+/// WFP keeps the block in place until the user unblocks or reconnects.
 /// </summary>
 public static class Vpn
 {
@@ -36,7 +36,7 @@ public static class Vpn
     static readonly SemaphoreSlim Gate = new(1, 1);
     static DispatcherTimer? _watchdog;
     static int _badChecks;
-    static bool _recovering;
+    static int _connectionRequest;
 
     static void Set(VpnStatus st, ServerResponse? s = null)
     {
@@ -63,10 +63,29 @@ public static class Vpn
 
     public static async Task<bool> Connect(ServerResponse s)
     {
+        Interlocked.Increment(ref _connectionRequest);
         await Gate.WaitAsync();
         try
         {
-            if (_engine != null) { await StopEngine(); }
+            if (TunnelGuard.Armed)
+            {
+                if (_engine == null || Server?.id != s.id || s.IsBypass)
+                {
+                    LastError = Loc.Get("home.reconnect_failed_killswitch");
+                    if (_engine == null) Set(VpnStatus.Blocked);
+                    return false;
+                }
+                Set(VpnStatus.Reconnecting);
+                TunnelGuard.CloseTunnel();
+                if (!await _engine.Restart()) throw new EngineException("home.error_server_unreachable");
+                _badChecks = 0;
+                Since = DateTime.Now;
+                LastError = null;
+                Set(VpnStatus.On);
+                return true;
+            }
+            if (_engine != null) await StopEngine();
+            if (s.IsBypass && AppSettings.Current.KillSwitch) throw new UserError(Loc.Get("err.killswitch_bypass"));
             LastError = null;
             Set(VpnStatus.Connecting, s);
             Log.I($"connect {s.server_type} {s.id}");
@@ -92,6 +111,7 @@ public static class Vpn
                     if (string.IsNullOrEmpty(r.config)) throw new UserError(r.message ?? Loc.Get("err.server"));
                     var conf = await AwgEngine.BuildConfig(r.config, r.client_key ? priv : null);
                     var awg = new AwgEngine();
+                    _engine = awg;
                     await awg.Start(conf);
                     engine = awg;
                     break;
@@ -100,6 +120,7 @@ public static class Vpn
                 {
                     var r = await Api.SingboxConfig(s.server_type, s.id);
                     var sb = new SingBoxEngine(s.server_type);
+                    _engine = sb;
                     await sb.Start(r.config);
                     engine = sb;
                     break;
@@ -140,9 +161,17 @@ public static class Vpn
         {
             LastError = Message(e);
             Log.E("connect", e);
-            await StopEngine();
+            if (TunnelGuard.Armed)
+            {
+                CloseTunnelSafely();
+                Set(VpnStatus.Blocked);
+            }
+            else
+            {
+                await StopEngine();
+                Set(VpnStatus.Off);
+            }
             Since = null;
-            Set(VpnStatus.Off);
             return false;
         }
         finally { Gate.Release(); }
@@ -168,19 +197,23 @@ public static class Vpn
 
     public static async Task Disconnect(bool byUser = true)
     {
+        Interlocked.Increment(ref _connectionRequest);
         await Gate.WaitAsync();
         try
         {
             if (_engine == null && Status == VpnStatus.Off) return;
             Set(VpnStatus.Disconnecting);
+            CloseTunnelSafely();
             await StopEngine();
+            if (byUser) TunnelGuard.Disarm();
             Since = null;
             LastError = null;
             if (byUser) { AppSettings.Current.UserDisconnected = true; AppSettings.Save(); }
-            Set(VpnStatus.Off);
+            Set(TunnelGuard.Armed ? VpnStatus.Blocked : VpnStatus.Off);
             if (byUser) Tray.Notify(Loc.Get("tray.disconnected"));
             Log.I("disconnected" + (byUser ? " by user" : ""));
         }
+        catch (Exception e) { Log.E("disconnect", e); Set(TunnelGuard.Armed ? VpnStatus.Blocked : VpnStatus.Off); }
         finally { Gate.Release(); }
     }
 
@@ -194,64 +227,94 @@ public static class Vpn
     public static async Task<(long rx, long tx)> Traffic() =>
         _engine == null ? (0, 0) : await _engine.Traffic();
 
+    static void CloseTunnelSafely()
+    {
+        try { TunnelGuard.CloseTunnel(); }
+        catch (Exception e) { Log.E("remove tunnel exception", e); }
+    }
+
     static async Task Check()
     {
-        var engine = _engine;
-        if (engine == null || _recovering || Busy || Status == VpnStatus.Blocked) return;
-        bool ok;
-        try { ok = engine.Alive() && await engine.Healthy(); } catch { ok = false; }
-        if (ok)
-        {
-            _badChecks = 0;
-            if (Status == VpnStatus.Reconnecting) Set(VpnStatus.On);
-            return;
-        }
-        if (++_badChecks < 2) return;   // one bad sample is not a drop
-
-        _recovering = true;
+        if (!await Gate.WaitAsync(0)) return;
         try
         {
-            Log.I("link lost");
-            var s = AppSettings.Current;
-            if (s.AutoReconnect)
+            var engine = _engine;
+            if (engine == null || Status != VpnStatus.On) return;
+            var request = Volatile.Read(ref _connectionRequest);
+            bool alive = engine.Alive();
+            bool ok;
+            try { ok = alive && await engine.Healthy(); } catch { ok = false; }
+            if (request != Volatile.Read(ref _connectionRequest)) return;
+            if (ok) { _badChecks = 0; return; }
+            if (alive && ++_badChecks < 2) return;
+
+            Log.I($"link lost: {engine.Kind}, process/service alive: {alive}");
+            TunnelGuard.CloseTunnel();
+            var reconnect = AppSettings.Current.AutoReconnect;
+            if (reconnect)
             {
                 Set(VpnStatus.Reconnecting);
-                for (int attempt = 1; attempt <= 3 && _engine == engine; attempt++)
+                for (int attempt = 1; attempt <= 3; attempt++)
                 {
+                    if (request != Volatile.Read(ref _connectionRequest))
+                    {
+                        if (TunnelGuard.Armed) BlockAfterFailure();
+                        return;
+                    }
                     Tray.Notify(Loc.F("tray.reconnecting", attempt));
-                    if (await engine.Restart()) { _badChecks = 0; Set(VpnStatus.On); Log.I("reconnected"); return; }
-                    await Task.Delay(TimeSpan.FromSeconds(attempt * 4));
+                    try
+                    {
+                        if (await engine.Restart())
+                        {
+                            _badChecks = 0;
+                            Set(VpnStatus.On);
+                            Log.I("reconnected");
+                            return;
+                        }
+                    }
+                    catch (Exception e) { Log.E("restart tunnel", e); }
+                    TunnelGuard.CloseTunnel();
+                    if (attempt < 3) await Task.Delay(TimeSpan.FromSeconds(attempt * 4));
                 }
-                if (_engine != engine) return;
             }
-            if (s.KillSwitch && engine is AwgEngine)
+            if (TunnelGuard.Armed)
             {
-                // Tunnel stays installed: Windows keeps blocking untunneled traffic — no leak of the real IP
-                LastError = Loc.Get("home.reconnect_failed_killswitch");
-                Set(VpnStatus.Blocked);
-                Tray.Notify(Loc.Get("tray.blocked"));
+                BlockAfterFailure();
                 return;
             }
             await StopEngine();
             Since = null;
-            LastError = Loc.Get(s.AutoReconnect ? "home.reconnect_failed" : "home.connection_lost");
+            LastError = Loc.Get(reconnect ? "home.reconnect_failed" : "home.connection_lost");
             Set(VpnStatus.Off);
             Tray.Notify(LastError);
         }
-        finally { _recovering = false; }
-    }
-
-    /// <summary>Kill switch blocked the internet after a drop: remove the tunnel.</summary>
-    public static async Task Unblock()
-    {
-        await Gate.WaitAsync();
-        try { await StopEngine(); Since = null; Set(VpnStatus.Off); }
+        catch (Exception e)
+        {
+            Log.E("watchdog", e);
+            if (TunnelGuard.Armed) BlockAfterFailure();
+        }
         finally { Gate.Release(); }
     }
+
+    static void BlockAfterFailure()
+    {
+        Since = null;
+        LastError = Loc.Get("home.reconnect_failed_killswitch");
+        Set(VpnStatus.Blocked);
+        Tray.Notify(Loc.Get("tray.blocked"));
+    }
+
+    public static Task Unblock() => Disconnect();
 
     /// <summary>Leftovers of a crashed run (tunnel service, sing-box, ciadpi, system proxy).</summary>
     public static async Task CleanupAtStart()
     {
+        TunnelGuard.Detect();
+        if (TunnelGuard.Armed)
+        {
+            CloseTunnelSafely();
+            Set(VpnStatus.Blocked);
+        }
         try { await AwgEngine.Cleanup(); } catch { }
         Proc.KillOurs("sing-box.exe");
         Proc.KillOurs("ciadpi.exe");
